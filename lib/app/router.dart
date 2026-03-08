@@ -5,6 +5,9 @@ import '../features/auth/presentation/screens/login_screen.dart';
 import '../features/auth/presentation/screens/splash_screen.dart';
 import '../features/scanner/presentation/screens/home_screen.dart';
 import '../features/scanner/presentation/screens/camera_screen.dart';
+import '../features/scanner/presentation/screens/page_preview_screen.dart';
+import '../features/scanner/presentation/screens/scan_review_screen.dart';
+import '../features/pdf/presentation/screens/pdf_generation_screen.dart';
 import '../features/documents/presentation/screens/documents_screen.dart';
 import '../features/upload_queue/presentation/screens/upload_queue_screen.dart';
 import '../features/settings/presentation/screens/settings_screen.dart';
@@ -29,9 +32,37 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const HomeScreen(),
       ),
       GoRoute(
-        path: '/camera',
-        name: 'camera',
+        path: '/scanner',
+        name: 'scanner',
+        routes: [
+          GoRoute(
+            path: 'camera',
+            name: 'scanner-camera',
+            builder: (context, state) => const CameraScreen(),
+          ),
+          GoRoute(
+            path: 'preview',
+            name: 'scanner-preview',
+            builder: (context, state) => const PagePreviewScreen(),
+          ),
+          GoRoute(
+            path: 'review',
+            name: 'scanner-review',
+            builder: (context, state) => const ScanReviewScreen(),
+          ),
+        ],
         builder: (context, state) => const CameraScreen(),
+      ),
+      GoRoute(
+        path: '/pdf',
+        name: 'pdf',
+        routes: [
+          GoRoute(
+            path: 'generate',
+            name: 'pdf-generate',
+            builder: (context, state) => const PdfGenerationScreen(),
+          ),
+        ],
       ),
       GoRoute(
         path: '/documents',
