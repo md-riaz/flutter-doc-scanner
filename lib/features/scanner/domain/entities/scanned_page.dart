@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:ui' show Offset;
 
 /// Represents a single scanned page in a document
 class ScannedPage {

@@ -201,7 +201,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
 
   Future<void> _shareDocument(PdfDocument document) async {
     try {
-      await Share.shareXFiles(
+      await SharePlus.instance.shareXFiles(
         [XFile(document.filePath)],
         subject: document.title,
       );

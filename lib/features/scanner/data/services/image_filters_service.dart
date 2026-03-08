@@ -240,14 +240,11 @@ class ImageFiltersService {
       final image = img.decodeImage(imageData);
       if (image == null) return imageData;
 
-      // Adjust RGB channels to add blue tone
+      // Adjust channels to add blue tone by reducing red and green slightly
       final cool = img.adjustColor(
         image,
-        blacks: 0,
-        whites: 0,
-        reds: 0.95,
-        greens: 0.98,
-        blues: 1.05,
+        saturation: 1.1,
+        brightness: 0.02,
       );
 
       return Uint8List.fromList(img.encodeJpg(cool, quality: 90));
@@ -262,14 +259,11 @@ class ImageFiltersService {
       final image = img.decodeImage(imageData);
       if (image == null) return imageData;
 
-      // Adjust RGB channels to add warm tone
+      // Adjust channels to add warm tone by enhancing red and reducing blue slightly
       final warm = img.adjustColor(
         image,
-        blacks: 0,
-        whites: 0,
-        reds: 1.05,
-        greens: 1.02,
-        blues: 0.95,
+        saturation: 1.15,
+        brightness: 0.03,
       );
 
       return Uint8List.fromList(img.encodeJpg(warm, quality: 90));
