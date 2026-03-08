@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/pdf_document.dart';
 import '../../data/repositories/pdf_repository.dart';
 import '../../../scanner/domain/entities/scan_session.dart';
+import '../../../documents/data/repositories/document_repository.dart';
+import '../../../upload_queue/data/repositories/upload_queue_repository.dart';
 
 // State class for PDF generation
 class PdfGenerationState {
@@ -37,14 +39,25 @@ class PdfGenerationState {
 final pdfGenerationProvider =
     StateNotifierProvider<PdfGenerationNotifier, PdfGenerationState>((ref) {
   final pdfRepository = ref.watch(pdfRepositoryProvider);
-  return PdfGenerationNotifier(pdfRepository);
+  final documentRepository = ref.watch(documentRepositoryProvider);
+  final uploadQueueRepository = ref.watch(uploadQueueRepositoryProvider);
+  return PdfGenerationNotifier(
+    pdfRepository,
+    documentRepository,
+    uploadQueueRepository,
+  );
 });
 
 class PdfGenerationNotifier extends StateNotifier<PdfGenerationState> {
   final PdfRepository _pdfRepository;
+  final DocumentRepository _documentRepository;
+  final UploadQueueRepository _uploadQueueRepository;
 
-  PdfGenerationNotifier(this._pdfRepository)
-      : super(const PdfGenerationState());
+  PdfGenerationNotifier(
+    this._pdfRepository,
+    this._documentRepository,
+    this._uploadQueueRepository,
+  ) : super(const PdfGenerationState());
 
   /// Generate a PDF from a scan session
   Future<PdfDocument?> generateFromSession(
@@ -70,6 +83,12 @@ class PdfGenerationNotifier extends StateNotifier<PdfGenerationState> {
 
       state = state.copyWith(progress: 0.9);
 
+      // Save to database
+      await _documentRepository.saveDocument(document);
+
+      // Add to upload queue
+      await _uploadQueueRepository.addToQueue(document.id);
+
       state = state.copyWith(
         document: document,
         isGenerating: false,
@@ -91,6 +110,7 @@ class PdfGenerationNotifier extends StateNotifier<PdfGenerationState> {
   Future<void> deletePdf(PdfDocument document) async {
     try {
       await _pdfRepository.deletePdf(document);
+      await _documentRepository.deleteDocument(document.id);
       if (state.document?.id == document.id) {
         state = const PdfGenerationState();
       }
