@@ -102,6 +102,35 @@ class ScanSessionNotifier extends StateNotifier<ScanSessionState> {
     }
   }
 
+  /// Add an image from gallery
+  Future<void> addImageFromGallery(List<int> imageBytes) async {
+    // Create a session if one doesn't exist
+    if (state.session == null) {
+      startSession();
+    }
+
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final pageNumber = state.session!.pages.length + 1;
+      final page = await _scanRepository.createPageFromBytes(imageBytes, pageNumber);
+
+      final updatedSession = state.session!.copyWith(
+        pages: [...state.session!.pages, page],
+        updatedAt: DateTime.now(),
+      );
+
+      state = state.copyWith(
+        session: updatedSession,
+        isLoading: false,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: 'Failed to add image: ${e.toString()}',
+      );
+    }
+  }
+
   /// Process a page (crop and enhance)
   Future<void> processPage(
     String pageId, {

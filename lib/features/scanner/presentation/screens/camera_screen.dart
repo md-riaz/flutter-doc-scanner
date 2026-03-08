@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:camera/camera.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 import '../providers/scan_session_provider.dart';
 import '../../../../core/constants/app_constants.dart';
 import 'package:go_router/go_router.dart';
@@ -69,6 +71,34 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     setState(() {
       _isFlashOn = !_isFlashOn;
     });
+  }
+
+  Future<void> _importFromGallery() async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 100,
+      );
+
+      if (image != null && mounted) {
+        // Add the image to the scan session
+        final scanSession = ref.read(scanSessionProvider.notifier);
+        final File imageFile = File(image.path);
+        final bytes = await imageFile.readAsBytes();
+
+        await scanSession.addImageFromGallery(bytes);
+
+        // Navigate to preview screen
+        context.push('/scanner/preview');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to import image: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -230,11 +260,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                   ),
                 ),
 
-                // Gallery button (placeholder)
+                // Gallery button
                 IconButton(
-                  onPressed: () {
-                    // TODO: Open gallery to select image
-                  },
+                  onPressed: _importFromGallery,
                   icon: const Icon(
                     Icons.photo_library,
                     color: Colors.white,
