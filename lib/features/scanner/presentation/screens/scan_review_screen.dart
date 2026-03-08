@@ -64,8 +64,8 @@ class ScanReviewScreen extends ConsumerWidget {
           onPressed: sessionState.isLoading
               ? null
               : () {
-                  // Generate PDF - will be implemented in Phase 3
-                  _showGeneratePdfDialog(context);
+                  // Navigate to PDF generation
+                  context.push('/pdf/generate');
                 },
           icon: const Icon(Icons.picture_as_pdf),
           label: const Text('Generate PDF'),
@@ -155,25 +155,6 @@ class ScanReviewScreen extends ConsumerWidget {
               Navigator.pop(context);
             },
             child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showGeneratePdfDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('PDF Generation'),
-        content: const Text(
-          'PDF generation will be implemented in Phase 3.\n\n'
-          'For now, you can review and reorder your scanned pages.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
           ),
         ],
       ),
