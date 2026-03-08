@@ -40,6 +40,11 @@ lib/
 
 Comprehensive documentation is available in the `/docs` folder:
 
+### 📱 Visual Guides
+- **[Screenshots & UI Guide](docs/SCREENSHOTS.md)** - Detailed mockups of all app screens
+- **[UI Wireframes](docs/UI_WIREFRAMES.md)** - Complete wireframes with design specifications
+
+### 📚 Technical Documentation
 - [Technical Specification](docs/TECHNICAL_SPECIFICATION.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Features](docs/FEATURES.md)
@@ -160,21 +165,25 @@ The app follows **Clean Architecture** principles with three layers:
 
 ## Current Status
 
-### ✅ Completed
-- Project structure and configuration
-- Authentication module (login, logout, session management)
-- Core services (networking, storage, routing)
-- Basic UI screens and navigation
-- Role-based access control
+**Overall Progress: ~60% of MVP Complete** ✅
 
-### 🔄 In Progress
-- Camera integration
-- Document scanning
-- PDF generation
-- Upload queue management
-- Document management
+### ✅ Completed Features
+- ✅ Authentication module (login, logout, session management)
+- ✅ Camera & scanning with live preview
+- ✅ Multi-page document capture
+- ✅ Image enhancement and processing
+- ✅ PDF generation with metadata
+- ✅ Local database (Drift/SQLite)
+- ✅ Document management (list, search, delete)
+- ✅ Complete UI for all core screens
 
-See [Implementation Status](docs/IMPLEMENTATION_STATUS.md) for detailed progress.
+### 🔄 Next Steps
+- Upload & sync module
+- Projects management
+- Advanced features (better edge detection, filters)
+- Testing & polish
+
+See **[Implementation Status](docs/IMPLEMENTATION_STATUS.md)** for detailed progress and **[Screenshots](docs/SCREENSHOTS.md)** to see how the app looks.
 
 ## Development Roadmap
 
