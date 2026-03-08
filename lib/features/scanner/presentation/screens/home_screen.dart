@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../providers/scan_session_provider.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -66,24 +67,32 @@ class HomeScreen extends ConsumerWidget {
                 children: [
                   _buildMenuCard(
                     context,
+                    ref: ref,
                     icon: Icons.camera_alt,
                     title: 'Scan Document',
-                    onTap: () => context.push('/camera'),
+                    onTap: () {
+                      // Start a new scan session
+                      ref.read(scanSessionProvider.notifier).startSession();
+                      context.push('/scanner/camera');
+                    },
                   ),
                   _buildMenuCard(
                     context,
+                    ref: ref,
                     icon: Icons.folder,
                     title: 'My Documents',
                     onTap: () => context.push('/documents'),
                   ),
                   _buildMenuCard(
                     context,
+                    ref: ref,
                     icon: Icons.upload_file,
                     title: 'Upload Queue',
                     onTap: () => context.push('/upload-queue'),
                   ),
                   _buildMenuCard(
                     context,
+                    ref: ref,
                     icon: Icons.info,
                     title: 'Settings',
                     onTap: () => context.push('/settings'),
@@ -99,6 +108,7 @@ class HomeScreen extends ConsumerWidget {
 
   Widget _buildMenuCard(
     BuildContext context, {
+    required WidgetRef ref,
     required IconData icon,
     required String title,
     required VoidCallback onTap,

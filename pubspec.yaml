@@ -51,6 +51,9 @@ dependencies:
   # UI Components
   cupertino_icons: ^1.0.6
 
+  # Utilities
+  uuid: ^4.3.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
