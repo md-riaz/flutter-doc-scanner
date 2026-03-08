@@ -7,6 +7,7 @@ import '../features/scanner/presentation/screens/home_screen.dart';
 import '../features/scanner/presentation/screens/camera_screen.dart';
 import '../features/scanner/presentation/screens/page_preview_screen.dart';
 import '../features/scanner/presentation/screens/scan_review_screen.dart';
+import '../features/scanner/presentation/screens/corner_adjustment_screen.dart';
 import '../features/pdf/presentation/screens/pdf_generation_screen.dart';
 import '../features/documents/presentation/screens/documents_screen.dart';
 import '../features/upload_queue/presentation/screens/upload_queue_screen.dart';
@@ -50,6 +51,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'review',
             name: 'scanner-review',
             builder: (context, state) => const ScanReviewScreen(),
+          ),
+          GoRoute(
+            path: 'corner-adjustment/:pageId',
+            name: 'scanner-corner-adjustment',
+            builder: (context, state) {
+              final pageId = state.pathParameters['pageId']!;
+              return CornerAdjustmentScreen(pageId: pageId);
+            },
           ),
         ],
         builder: (context, state) => const CameraScreen(),

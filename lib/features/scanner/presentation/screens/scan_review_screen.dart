@@ -123,7 +123,8 @@ class ScanReviewScreen extends ConsumerWidget {
                     child: ElevatedButton.icon(
                       onPressed: () {
                         Navigator.pop(context);
-                        // TODO: Navigate to edit screen
+                        // Navigate to corner adjustment screen
+                        context.push('/scanner/corner-adjustment/${page.id}');
                       },
                       icon: const Icon(Icons.edit),
                       label: const Text('Edit'),
