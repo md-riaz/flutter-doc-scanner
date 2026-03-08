@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/scanned_page.dart';
@@ -186,6 +187,27 @@ class ScanSessionNotifier extends StateNotifier<ScanSessionState> {
 
     final updatedSession = state.session!.copyWith(
       pages: renumberedPages,
+      updatedAt: DateTime.now(),
+    );
+
+    state = state.copyWith(session: updatedSession);
+  }
+
+  /// Update page image data (e.g., after applying filter)
+  Future<void> updatePageImage(String pageId, Uint8List newImageData) async {
+    if (state.session == null) return;
+
+    final pageIndex = state.session!.pages.indexWhere((p) => p.id == pageId);
+    if (pageIndex == -1) return;
+
+    final page = state.session!.pages[pageIndex];
+    final updatedPage = page.copyWith(imageData: newImageData);
+
+    final updatedPages = [...state.session!.pages];
+    updatedPages[pageIndex] = updatedPage;
+
+    final updatedSession = state.session!.copyWith(
+      pages: updatedPages,
       updatedAt: DateTime.now(),
     );
 
