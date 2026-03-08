@@ -1,8 +1,19 @@
 # Flutter Document Scanner App - Implementation Status
 
-## Current Status: Foundation Phase Complete
+## Current Status: Foundation Phase Complete + Mock Mode Enabled
 
 ### ✅ Completed Components
+
+#### 0. Mock Mode for Backend-less Development
+- **Mock API Configuration**: Toggle flag in AppConstants (`useMockApi`)
+- **Mock Authentication API**: Complete implementation with 3 test users
+- **Test Credentials**:
+  - Admin: `admin` / `admin123`
+  - User: `user` / `user123`
+  - Viewer: `viewer` / `viewer123`
+- **Repository Integration**: Automatic switching between mock and real APIs
+- **Documentation**: Complete AGENTS.md with instructions for AI agents
+- **README Updates**: Mock mode documentation and usage instructions
 
 #### 1. Project Structure
 - Created comprehensive specification documents in `/docs`
@@ -41,6 +52,8 @@
 - SettingsScreen with logout functionality
 
 ### 🔄 Next Steps (In Priority Order)
+
+**Note**: All features can now be developed and tested without a backend using mock implementations!
 
 #### Phase 1: Camera & Scanning Module
 1. Implement camera controller with permission handling
@@ -102,6 +115,12 @@
 6. Admin features (if needed)
 
 ### 📝 Important Notes
+
+#### Mock Mode
+- **Enabled by default** - No backend required for development
+- Set `useMockApi = true` in `lib/core/constants/app_constants.dart`
+- See [AGENTS.md](../AGENTS.md) for complete mock mode documentation
+- Test credentials: admin/admin123, user/user123, viewer/viewer123
 
 #### Flutter SDK Requirement
 - This project requires Flutter SDK to be installed

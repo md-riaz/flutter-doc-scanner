@@ -1,31 +1,42 @@
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
 import '../../domain/entities/user.dart';
 import '../datasources/auth_api.dart';
 import '../../../../core/storage/secure_storage_service.dart';
 import '../../../../core/errors/exceptions.dart';
+import '../../../../core/constants/app_constants.dart';
+import '../../../../core/network/mock_auth_api.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   final authApi = ref.watch(authApiProvider);
+  final mockAuthApi = ref.watch(mockAuthApiProvider);
   final storage = ref.watch(secureStorageServiceProvider);
-  return AuthRepository(authApi, storage);
+  return AuthRepository(authApi, mockAuthApi, storage);
 });
 
 class AuthRepository {
   final AuthApi _authApi;
+  final MockAuthApi _mockAuthApi;
   final SecureStorageService _storage;
 
-  AuthRepository(this._authApi, this._storage);
+  AuthRepository(this._authApi, this._mockAuthApi, this._storage);
 
   Future<User> login({
     required String username,
     required String password,
   }) async {
     try {
-      final response = await _authApi.login(
-        username: username,
-        password: password,
-      );
+      // Use mock API if configured, otherwise use real API
+      final response = AppConstants.useMockApi
+          ? await _mockAuthApi.login(
+              username: username,
+              password: password,
+            )
+          : await _authApi.login(
+              username: username,
+              password: password,
+            );
 
       final accessToken = response['access_token'] ?? response['accessToken'];
       final refreshToken = response['refresh_token'] ?? response['refreshToken'];
@@ -75,7 +86,11 @@ class AuthRepository {
 
   Future<void> logout() async {
     try {
-      await _authApi.logout();
+      if (AppConstants.useMockApi) {
+        await _mockAuthApi.logout();
+      } else {
+        await _authApi.logout();
+      }
     } catch (e) {
       // Continue with local logout even if API call fails
     } finally {
@@ -90,7 +105,9 @@ class AuthRepository {
         throw AuthException(message: 'No refresh token available');
       }
 
-      final response = await _authApi.refreshToken(refreshToken);
+      final response = AppConstants.useMockApi
+          ? await _mockAuthApi.refreshToken(refreshToken)
+          : await _authApi.refreshToken(refreshToken);
       final accessToken = response['access_token'] ?? response['accessToken'];
 
       if (accessToken == null) {

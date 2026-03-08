@@ -1,4 +1,9 @@
 class AppConstants {
+  // Mock Mode Configuration
+  // Set to true for development without backend
+  // Set to false when backend is available
+  static const bool useMockApi = true;
+
   // API Configuration
   static const String baseUrl = 'https://api.example.com';
   static const String apiVersion = '/api/v1';

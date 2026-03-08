@@ -60,6 +60,30 @@ Comprehensive documentation is available in the `/docs` folder:
 - Android Studio / VS Code
 - Android device or emulator
 
+### Mock Mode (No Backend Required)
+
+**The app is currently configured to run in MOCK MODE**, which means you can test all functionality without a backend server.
+
+#### Mock Credentials
+
+Use these credentials to test the app:
+
+| Username | Password | Role |
+|----------|----------|------|
+| `admin` | `admin123` | Admin |
+| `user` | `user123` | User |
+| `viewer` | `viewer123` | Viewer |
+
+Any other credentials will be rejected.
+
+#### Enabling/Disabling Mock Mode
+
+Mock mode is controlled in `lib/core/constants/app_constants.dart`:
+
+```dart
+static const bool useMockApi = true; // true = mock mode, false = real backend
+```
+
 ### Installation
 
 1. Clone the repository:
@@ -73,17 +97,30 @@ cd flutter-doc-scanner
 flutter pub get
 ```
 
-3. Configure the backend API:
-   - Update `baseUrl` in `lib/core/constants/app_constants.dart`
-
-4. Run the app:
+3. Run the app (Mock Mode - No Backend Required):
 ```bash
 flutter run
 ```
 
+4. Login with mock credentials (see Mock Mode section above)
+
+### When Backend is Available
+
+1. Set `useMockApi = false` in `lib/core/constants/app_constants.dart`
+2. Update `baseUrl` with your backend URL
+3. Ensure backend implements the API contract from `/docs/API_SPECIFICATION.md`
+
 ## Configuration
 
-### Backend API
+### Mock Mode (Current Default)
+
+The app runs in mock mode by default. See [AGENTS.md](AGENTS.md) for detailed documentation about:
+- Mock authentication
+- Test credentials
+- Mock data providers
+- Switching to real backend
+
+### Backend API (When Available)
 
 Update the API base URL in `lib/core/constants/app_constants.dart`:
 
