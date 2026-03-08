@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/scanned_page.dart';
@@ -102,6 +103,35 @@ class ScanSessionNotifier extends StateNotifier<ScanSessionState> {
     }
   }
 
+  /// Add an image from gallery
+  Future<void> addImageFromGallery(List<int> imageBytes) async {
+    // Create a session if one doesn't exist
+    if (state.session == null) {
+      startSession();
+    }
+
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final pageNumber = state.session!.pages.length + 1;
+      final page = await _scanRepository.createPageFromBytes(imageBytes, pageNumber);
+
+      final updatedSession = state.session!.copyWith(
+        pages: [...state.session!.pages, page],
+        updatedAt: DateTime.now(),
+      );
+
+      state = state.copyWith(
+        session: updatedSession,
+        isLoading: false,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: 'Failed to add image: ${e.toString()}',
+      );
+    }
+  }
+
   /// Process a page (crop and enhance)
   Future<void> processPage(
     String pageId, {
@@ -157,6 +187,27 @@ class ScanSessionNotifier extends StateNotifier<ScanSessionState> {
 
     final updatedSession = state.session!.copyWith(
       pages: renumberedPages,
+      updatedAt: DateTime.now(),
+    );
+
+    state = state.copyWith(session: updatedSession);
+  }
+
+  /// Update page image data (e.g., after applying filter)
+  Future<void> updatePageImage(String pageId, Uint8List newImageData) async {
+    if (state.session == null) return;
+
+    final pageIndex = state.session!.pages.indexWhere((p) => p.id == pageId);
+    if (pageIndex == -1) return;
+
+    final page = state.session!.pages[pageIndex];
+    final updatedPage = page.copyWith(imageData: newImageData);
+
+    final updatedPages = [...state.session!.pages];
+    updatedPages[pageIndex] = updatedPage;
+
+    final updatedSession = state.session!.copyWith(
+      pages: updatedPages,
       updatedAt: DateTime.now(),
     );
 

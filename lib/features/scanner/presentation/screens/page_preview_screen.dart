@@ -1,7 +1,10 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/scan_session_provider.dart';
+import '../../data/services/image_filters_service.dart';
+import '../../data/services/image_processing_service.dart';
 
 class PagePreviewScreen extends ConsumerStatefulWidget {
   const PagePreviewScreen({super.key});
@@ -12,6 +15,9 @@ class PagePreviewScreen extends ConsumerStatefulWidget {
 
 class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
   bool _autoEnhance = true;
+  ImageFilter _selectedFilter = ImageFilter.none;
+  Uint8List? _filteredImageData;
+  bool _isApplyingFilter = false;
 
   @override
   Widget build(BuildContext context) {
@@ -29,6 +35,7 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
     }
 
     final lastPage = session.pages.last;
+    final displayImage = _filteredImageData ?? lastPage.imageData;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -53,18 +60,87 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
           // Image preview
           Expanded(
             child: Center(
-              child: sessionState.isLoading
+              child: sessionState.isLoading || _isApplyingFilter
                   ? const CircularProgressIndicator(color: Colors.white)
                   : InteractiveViewer(
                       minScale: 0.5,
                       maxScale: 4.0,
                       child: Image.memory(
-                        lastPage.imageData,
+                        displayImage,
                         fit: BoxFit.contain,
                       ),
                     ),
             ),
           ),
+
+          // Filter selector
+          if (!sessionState.isLoading && !_isApplyingFilter)
+            Container(
+              height: 100,
+              decoration: BoxDecoration(
+                color: Colors.grey[900]?.withOpacity(0.9),
+              ),
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                itemCount: ImageFilter.values.length,
+                itemBuilder: (context, index) {
+                  final filter = ImageFilter.values[index];
+                  final filterService = ref.read(imageFiltersServiceProvider);
+                  final isSelected = _selectedFilter == filter;
+
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: GestureDetector(
+                      onTap: () => _applyFilter(filter),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 60,
+                            height: 60,
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: isSelected ? Colors.blue : Colors.white30,
+                                width: isSelected ? 3 : 1,
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  Image.memory(
+                                    lastPage.imageData,
+                                    fit: BoxFit.cover,
+                                  ),
+                                  if (isSelected)
+                                    Container(
+                                      color: Colors.blue.withOpacity(0.3),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            filterService.getFilterName(filter),
+                            style: TextStyle(
+                              color: isSelected ? Colors.blue : Colors.white,
+                              fontSize: 10,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
 
           // Enhancement controls
           Container(
@@ -136,6 +212,14 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
     final sessionState = ref.read(scanSessionProvider);
     final lastPage = sessionState.session!.pages.last;
 
+    // Apply filter if selected
+    if (_selectedFilter != ImageFilter.none && _filteredImageData != null) {
+      await ref.read(scanSessionProvider.notifier).updatePageImage(
+            lastPage.id,
+            _filteredImageData!,
+          );
+    }
+
     // Process the page if needed
     if (_autoEnhance && !lastPage.isProcessed) {
       await ref.read(scanSessionProvider.notifier).processPage(
@@ -154,6 +238,14 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
     final sessionState = ref.read(scanSessionProvider);
     final lastPage = sessionState.session!.pages.last;
 
+    // Apply filter if selected
+    if (_selectedFilter != ImageFilter.none && _filteredImageData != null) {
+      await ref.read(scanSessionProvider.notifier).updatePageImage(
+            lastPage.id,
+            _filteredImageData!,
+          );
+    }
+
     // Process the page if needed
     if (_autoEnhance && !lastPage.isProcessed) {
       await ref.read(scanSessionProvider.notifier).processPage(
@@ -165,6 +257,50 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
     if (mounted) {
       // Navigate to review screen
       context.go('/scanner/review');
+    }
+  }
+
+  Future<void> _applyFilter(ImageFilter filter) async {
+    if (_isApplyingFilter) return;
+
+    setState(() {
+      _selectedFilter = filter;
+      _isApplyingFilter = true;
+    });
+
+    try {
+      final sessionState = ref.read(scanSessionProvider);
+      final lastPage = sessionState.session!.pages.last;
+
+      if (filter == ImageFilter.none) {
+        setState(() {
+          _filteredImageData = null;
+          _isApplyingFilter = false;
+        });
+        return;
+      }
+
+      final filterService = ref.read(imageFiltersServiceProvider);
+      final filtered = await filterService.applyFilter(
+        lastPage.imageData,
+        filter,
+      );
+
+      if (mounted) {
+        setState(() {
+          _filteredImageData = filtered;
+          _isApplyingFilter = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isApplyingFilter = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to apply filter: $e')),
+        );
+      }
     }
   }
 }

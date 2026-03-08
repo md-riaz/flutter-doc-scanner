@@ -86,6 +86,13 @@ class HomeScreen extends ConsumerWidget {
                   _buildMenuCard(
                     context,
                     ref: ref,
+                    icon: Icons.folder_special,
+                    title: 'Projects',
+                    onTap: () => context.push('/projects'),
+                  ),
+                  _buildMenuCard(
+                    context,
+                    ref: ref,
                     icon: Icons.upload_file,
                     title: 'Upload Queue',
                     onTap: () => context.push('/upload-queue'),
@@ -93,7 +100,7 @@ class HomeScreen extends ConsumerWidget {
                   _buildMenuCard(
                     context,
                     ref: ref,
-                    icon: Icons.info,
+                    icon: Icons.settings,
                     title: 'Settings',
                     onTap: () => context.push('/settings'),
                   ),

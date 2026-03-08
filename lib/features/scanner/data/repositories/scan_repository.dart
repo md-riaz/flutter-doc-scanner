@@ -45,6 +45,20 @@ class ScanRepository {
     );
   }
 
+  /// Create a scanned page from image bytes (for gallery import)
+  Future<ScannedPage> createPageFromBytes(
+    List<int> imageBytes,
+    int pageNumber,
+  ) async {
+    return ScannedPage(
+      id: _uuid.v4(),
+      imageData: Uint8List.fromList(imageBytes),
+      capturedAt: DateTime.now(),
+      pageNumber: pageNumber,
+      isProcessed: false,
+    );
+  }
+
   /// Process a scanned page (crop, enhance)
   Future<ScannedPage> processPage(
     ScannedPage page, {

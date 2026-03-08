@@ -7,9 +7,11 @@ import '../features/scanner/presentation/screens/home_screen.dart';
 import '../features/scanner/presentation/screens/camera_screen.dart';
 import '../features/scanner/presentation/screens/page_preview_screen.dart';
 import '../features/scanner/presentation/screens/scan_review_screen.dart';
+import '../features/scanner/presentation/screens/corner_adjustment_screen.dart';
 import '../features/pdf/presentation/screens/pdf_generation_screen.dart';
 import '../features/documents/presentation/screens/documents_screen.dart';
 import '../features/upload_queue/presentation/screens/upload_queue_screen.dart';
+import '../features/projects/presentation/screens/projects_screen.dart';
 import '../features/settings/presentation/screens/settings_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -50,6 +52,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             name: 'scanner-review',
             builder: (context, state) => const ScanReviewScreen(),
           ),
+          GoRoute(
+            path: 'corner-adjustment/:pageId',
+            name: 'scanner-corner-adjustment',
+            builder: (context, state) {
+              final pageId = state.pathParameters['pageId']!;
+              return CornerAdjustmentScreen(pageId: pageId);
+            },
+          ),
         ],
         builder: (context, state) => const CameraScreen(),
       ),
@@ -67,12 +77,24 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/documents',
         name: 'documents',
-        builder: (context, state) => const DocumentsScreen(),
+        builder: (context, state) {
+          final projectId = state.uri.queryParameters['projectId'];
+          final projectName = state.uri.queryParameters['projectName'];
+          return DocumentsScreen(
+            projectId: projectId,
+            projectName: projectName,
+          );
+        },
       ),
       GoRoute(
         path: '/upload-queue',
         name: 'upload-queue',
         builder: (context, state) => const UploadQueueScreen(),
+      ),
+      GoRoute(
+        path: '/projects',
+        name: 'projects',
+        builder: (context, state) => const ProjectsScreen(),
       ),
       GoRoute(
         path: '/settings',

@@ -2,13 +2,25 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image/image.dart' as img;
+import 'edge_detection_service.dart';
+import 'image_filters_service.dart';
 
 final imageProcessingServiceProvider = Provider<ImageProcessingService>((ref) {
-  return ImageProcessingService();
+  return ImageProcessingService(
+    edgeDetectionService: ref.watch(edgeDetectionServiceProvider),
+    imageFiltersService: ref.watch(imageFiltersServiceProvider),
+  );
 });
 
 /// Service for processing scanned images
 class ImageProcessingService {
+  final EdgeDetectionService edgeDetectionService;
+  final ImageFiltersService imageFiltersService;
+
+  ImageProcessingService({
+    required this.edgeDetectionService,
+    required this.imageFiltersService,
+  });
   /// Enhance image (brightness, contrast, sharpness)
   Future<Uint8List> enhanceImage(
     Uint8List imageData, {
@@ -153,31 +165,38 @@ class ImageProcessingService {
     }
   }
 
-  /// Detect document edges (simple implementation)
+  /// Detect document edges (OpenCV-based implementation)
   /// Returns corners: [topLeft, topRight, bottomRight, bottomLeft]
   Future<List<ui.Offset>?> detectDocumentEdges(
     Uint8List imageData,
     int imageWidth,
     int imageHeight,
   ) async {
-    try {
-      final image = img.decodeImage(imageData);
-      if (image == null) return null;
+    return edgeDetectionService.detectDocumentEdges(
+      imageData,
+      imageWidth,
+      imageHeight,
+    );
+  }
 
-      // For now, return a rectangle with 5% margin
-      // In production, use OpenCV or similar for real edge detection
-      final margin = 0.05;
-      final w = imageWidth.toDouble();
-      final h = imageHeight.toDouble();
+  /// Apply perspective transformation using detected corners
+  Future<Uint8List?> applyPerspectiveTransform(
+    Uint8List imageData,
+    List<ui.Offset> corners,
+  ) async {
+    return edgeDetectionService.applyPerspectiveTransform(imageData, corners);
+  }
 
-      return [
-        ui.Offset(w * margin, h * margin), // top left
-        ui.Offset(w * (1 - margin), h * margin), // top right
-        ui.Offset(w * (1 - margin), h * (1 - margin)), // bottom right
-        ui.Offset(w * margin, h * (1 - margin)), // bottom left
-      ];
-    } catch (e) {
-      return null;
-    }
+  /// Apply an image filter
+  Future<Uint8List> applyFilter(
+    Uint8List imageData,
+    ImageFilter filter,
+  ) async {
+    return imageFiltersService.applyFilter(imageData, filter);
+  }
+
+  /// Get filter name for display
+  String getFilterName(ImageFilter filter) {
+    return imageFiltersService.getFilterName(filter);
   }
 }

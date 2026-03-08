@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/pdf_generation_provider.dart';
 import '../../../scanner/presentation/providers/scan_session_provider.dart';
+import '../../../projects/presentation/providers/projects_provider.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -19,6 +20,16 @@ class _PdfGenerationScreenState extends ConsumerState<PdfGenerationScreen> {
   final _titleController = TextEditingController();
   final _tagsController = TextEditingController();
   String? _selectedCategory;
+  String? _selectedProjectId;
+
+  @override
+  void initState() {
+    super.initState();
+    // Load projects when screen initializes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(projectsProvider.notifier).loadProjects();
+    });
+  }
 
   @override
   void dispose() {
@@ -109,6 +120,37 @@ class _PdfGenerationScreenState extends ConsumerState<PdfGenerationScreen> {
                 setState(() {
                   _selectedCategory = value;
                 });
+              },
+            ),
+            const SizedBox(height: 16),
+
+            // Project dropdown
+            Builder(
+              builder: (context) {
+                final projectsState = ref.watch(projectsProvider);
+                return DropdownButtonFormField<String>(
+                  decoration: const InputDecoration(
+                    labelText: 'Project (Optional)',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.folder_special),
+                  ),
+                  value: _selectedProjectId,
+                  items: [
+                    const DropdownMenuItem(
+                      value: null,
+                      child: Text('No Project'),
+                    ),
+                    ...projectsState.projects.map((project) => DropdownMenuItem(
+                          value: project.id,
+                          child: Text(project.name),
+                        )),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedProjectId = value;
+                    });
+                  },
+                );
               },
             ),
             const SizedBox(height: 16),
@@ -295,6 +337,7 @@ class _PdfGenerationScreenState extends ConsumerState<PdfGenerationScreen> {
           title: _titleController.text.trim(),
           category: _selectedCategory,
           tags: tags,
+          projectId: _selectedProjectId,
         );
 
     if (document == null && mounted) {
