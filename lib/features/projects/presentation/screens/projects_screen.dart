@@ -198,8 +198,8 @@ class ProjectsScreen extends ConsumerWidget {
       elevation: 2,
       child: InkWell(
         onTap: () {
-          // Navigate to project documents
-          // This would filter documents by project
+          // Navigate to project documents with filter
+          context.push('/documents?projectId=${project.id}&projectName=${Uri.encodeComponent(project.name)}');
         },
         onLongPress: () {
           _showProjectOptions(context, ref, project);

@@ -8,7 +8,14 @@ import '../../../pdf/domain/entities/pdf_document.dart';
 import '../../../scanner/presentation/providers/scan_session_provider.dart';
 
 class DocumentsScreen extends ConsumerStatefulWidget {
-  const DocumentsScreen({super.key});
+  final String? projectId;
+  final String? projectName;
+
+  const DocumentsScreen({
+    super.key,
+    this.projectId,
+    this.projectName,
+  });
 
   @override
   ConsumerState<DocumentsScreen> createState() => _DocumentsScreenState();
@@ -16,6 +23,19 @@ class DocumentsScreen extends ConsumerStatefulWidget {
 
 class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
   final _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Load documents with project filter if provided
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.projectId != null) {
+        ref.read(documentsProvider.notifier).loadDocumentsByProject(widget.projectId!);
+      } else {
+        ref.read(documentsProvider.notifier).loadDocuments();
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -29,12 +49,26 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Documents'),
+        title: Text(widget.projectName != null
+            ? '${widget.projectName} Documents'
+            : 'My Documents'),
         actions: [
+          if (widget.projectId != null)
+            IconButton(
+              icon: const Icon(Icons.clear),
+              onPressed: () {
+                context.go('/documents');
+              },
+              tooltip: 'Clear filter',
+            ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
-              ref.read(documentsProvider.notifier).refresh();
+              if (widget.projectId != null) {
+                ref.read(documentsProvider.notifier).loadDocumentsByProject(widget.projectId!);
+              } else {
+                ref.read(documentsProvider.notifier).refresh();
+              }
             },
           ),
         ],

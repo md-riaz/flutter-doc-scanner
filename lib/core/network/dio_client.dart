@@ -16,9 +16,9 @@ final dioProvider = Provider<Dio>((ref) {
     ),
   );
 
-  // Add auth interceptor
+  // Add auth interceptor with token refresh
   dio.interceptors.add(
-    InterceptorsWrapper(
+    QueuedInterceptorsWrapper(
       onRequest: (options, handler) async {
         final storage = ref.read(secureStorageServiceProvider);
         final token = await storage.getAccessToken();
@@ -30,7 +30,49 @@ final dioProvider = Provider<Dio>((ref) {
       onError: (error, handler) async {
         if (error.response?.statusCode == 401) {
           // Token expired, try to refresh
-          // TODO: Implement token refresh logic
+          try {
+            final storage = ref.read(secureStorageServiceProvider);
+            final refreshToken = await storage.getRefreshToken();
+
+            if (refreshToken != null) {
+              // Create a new Dio instance to avoid interceptor loop
+              final refreshDio = Dio(
+                BaseOptions(
+                  baseUrl: AppConstants.baseUrl + AppConstants.apiVersion,
+                ),
+              );
+
+              // Attempt token refresh
+              final response = await refreshDio.post(
+                '/auth/refresh',
+                data: {'refresh_token': refreshToken},
+              );
+
+              if (response.statusCode == 200) {
+                final data = response.data;
+                final newAccessToken = data['access_token'];
+                final newRefreshToken = data['refresh_token'];
+
+                // Save new tokens
+                await storage.saveAccessToken(newAccessToken);
+                if (newRefreshToken != null) {
+                  await storage.saveRefreshToken(newRefreshToken);
+                }
+
+                // Retry the original request with new token
+                final opts = error.requestOptions;
+                opts.headers['Authorization'] = 'Bearer $newAccessToken';
+
+                final retryResponse = await dio.fetch(opts);
+                return handler.resolve(retryResponse);
+              }
+            }
+          } catch (e) {
+            // Refresh failed, clear tokens and let error propagate
+            final storage = ref.read(secureStorageServiceProvider);
+            await storage.deleteAccessToken();
+            await storage.deleteRefreshToken();
+          }
         }
         return handler.next(error);
       },
@@ -39,3 +81,6 @@ final dioProvider = Provider<Dio>((ref) {
 
   return dio;
 });
+
+// Separate client provider for cases where we need a Dio without interceptors
+final dioClientProvider = Provider<Dio>((ref) => ref.watch(dioProvider));

@@ -68,7 +68,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/documents',
         name: 'documents',
-        builder: (context, state) => const DocumentsScreen(),
+        builder: (context, state) {
+          final projectId = state.uri.queryParameters['projectId'];
+          final projectName = state.uri.queryParameters['projectName'];
+          return DocumentsScreen(
+            projectId: projectId,
+            projectName: projectName,
+          );
+        },
       ),
       GoRoute(
         path: '/upload-queue',
