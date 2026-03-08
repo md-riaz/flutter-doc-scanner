@@ -10,6 +10,7 @@ import '../features/scanner/presentation/screens/scan_review_screen.dart';
 import '../features/pdf/presentation/screens/pdf_generation_screen.dart';
 import '../features/documents/presentation/screens/documents_screen.dart';
 import '../features/upload_queue/presentation/screens/upload_queue_screen.dart';
+import '../features/projects/presentation/screens/projects_screen.dart';
 import '../features/settings/presentation/screens/settings_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -73,6 +74,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/upload-queue',
         name: 'upload-queue',
         builder: (context, state) => const UploadQueueScreen(),
+      ),
+      GoRoute(
+        path: '/projects',
+        name: 'projects',
+        builder: (context, state) => const ProjectsScreen(),
       ),
       GoRoute(
         path: '/settings',
