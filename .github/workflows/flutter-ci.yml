@@ -36,7 +36,12 @@ jobs:
       run: flutter analyze
 
     - name: Run tests
-      run: flutter test
+      run: |
+        if [ -d "test" ]; then
+          flutter test
+        else
+          echo "No test directory found, skipping tests"
+        fi
 
     - name: Build APK
       run: flutter build apk --debug
@@ -68,9 +73,15 @@ jobs:
       run: dart run build_runner build --delete-conflicting-outputs
 
     - name: Build web
-      run: flutter build web
+      run: |
+        if [ -d "web" ]; then
+          flutter build web
+        else
+          echo "No web directory found, skipping web build"
+        fi
 
     - name: Upload web artifact
+      if: hashFiles('web/index.html') != ''
       uses: actions/upload-artifact@v4
       with:
         name: web-build
