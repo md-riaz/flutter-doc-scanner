@@ -18,25 +18,35 @@ allprojects {
     }
 }
 
+rootProject.buildDir = '../build'
+
 // Flutter SDK extension configuration for plugins
 subprojects {
+    project.buildDir = "${rootProject.buildDir}/${project.name}"
+    project.evaluationDependsOn(':app')
+
+    // Apply configuration before plugin evaluation to avoid property access issues
+    project.ext.set("flutter.compileSdkVersion", 34)
+    project.ext.set("flutter.minSdkVersion", 21)
+    project.ext.set("flutter.targetSdkVersion", 34)
+    project.ext.set("flutter.ndkVersion", "")
+    project.ext.set("flutter.buildToolsVersion", "34.0.0")
+
     afterEvaluate { project ->
         if (project.hasProperty('android')) {
             project.android {
-                if (!project.android.hasProperty('compileSdkVersion')) {
+                // Ensure compileSdkVersion is set for all plugins
+                if (!project.android.hasProperty('compileSdkVersion') || project.android.compileSdkVersion == null) {
                     compileSdkVersion 34
+                }
+
+                // Provide default build configuration
+                if (!project.android.hasProperty('buildToolsVersion') || project.android.buildToolsVersion == null) {
+                    buildToolsVersion "34.0.0"
                 }
             }
         }
     }
-}
-
-rootProject.buildDir = '../build'
-subprojects {
-    project.buildDir = "${rootProject.buildDir}/${project.name}"
-}
-subprojects {
-    project.evaluationDependsOn(':app')
 }
 
 tasks.register("clean", Delete) {
