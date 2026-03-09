@@ -24,12 +24,14 @@ rootProject.buildDir = '../build'
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
 
-    // Apply configuration before plugin evaluation to avoid property access issues
-    project.ext.set("flutter.compileSdkVersion", 34)
-    project.ext.set("flutter.minSdkVersion", 21)
-    project.ext.set("flutter.targetSdkVersion", 34)
-    project.ext.set("flutter.ndkVersion", "")
-    project.ext.set("flutter.buildToolsVersion", "34.0.0")
+    // Create flutter extension object for plugins to access flutter.* properties
+    project.ext.flutter = [
+        compileSdkVersion: 34,
+        minSdkVersion    : 21,
+        targetSdkVersion : 34,
+        ndkVersion       : "",
+        buildToolsVersion: "34.0.0"
+    ]
 
     afterEvaluate { project ->
         if (project.hasProperty('android')) {
