@@ -1,5 +1,3 @@
-import 'package:flutter/material.dart';
-
 /// Represents a generated PDF document
 class PdfDocument {
   final String id;

@@ -362,7 +362,7 @@ class _PdfGenerationScreenState extends ConsumerState<PdfGenerationScreen> {
 
   Future<void> _sharePdf(PdfDocument document) async {
     try {
-      await SharePlus.instance.shareXFiles(
+      await Share.shareXFiles(
         [XFile(document.filePath)],
         subject: document.title,
       );

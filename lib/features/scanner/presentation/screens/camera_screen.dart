@@ -4,7 +4,6 @@ import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../providers/scan_session_provider.dart';
-import '../../../../core/constants/app_constants.dart';
 import 'package:go_router/go_router.dart';
 
 class CameraScreen extends ConsumerStatefulWidget {
