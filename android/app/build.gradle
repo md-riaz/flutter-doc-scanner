@@ -22,6 +22,10 @@ if (flutterVersionName == null) {
     flutterVersionName = '1.0'
 }
 
+flutter {
+    source '../..'
+}
+
 android {
     namespace "com.example.doc_scanner"
     compileSdkVersion 34
@@ -54,10 +58,6 @@ android {
             signingConfig signingConfigs.debug
         }
     }
-}
-
-flutter {
-    source '../..'
 }
 
 dependencies {
