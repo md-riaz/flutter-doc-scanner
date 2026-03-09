@@ -499,7 +499,8 @@ class _CornerOverlayPainter extends CustomPainter {
 
     final overlayPath = Path()
       ..addRect(Rect.fromLTWH(0, 0, displaySize.width, displaySize.height))
-      ..addPath(path, Offset.zero, PathFillType.evenOdd);
+      ..addPath(path, Offset.zero)
+      ..fillType = PathFillType.evenOdd;
 
     canvas.drawPath(
       overlayPath,

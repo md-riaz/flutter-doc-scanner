@@ -362,6 +362,7 @@ class _PdfGenerationScreenState extends ConsumerState<PdfGenerationScreen> {
 
   Future<void> _sharePdf(PdfDocument document) async {
     try {
+      // ignore: deprecated_member_use
       await Share.shareXFiles(
         [XFile(document.filePath)],
         subject: document.title,

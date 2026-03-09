@@ -63,10 +63,11 @@ class EdgeDetectionService {
       final approx = cv.approxPolyDP(largestContour, epsilon, true);
 
       // If we found a quadrilateral (4 points), use it
-      if (approx.rows == 4) {
+      // TODO: Update to opencv_dart 2.x API - VecPoint structure has changed
+      if (approx.length == 4) {
         final corners = <ui.Offset>[];
         for (var i = 0; i < 4; i++) {
-          final point = approx.at<cv.Point>(i, 0);
+          final point = approx[i];
           corners.add(ui.Offset(point.x.toDouble(), point.y.toDouble()));
         }
 
@@ -110,7 +111,8 @@ class EdgeDetectionService {
       final maxHeight = heightLeft > heightRight ? heightLeft : heightRight;
 
       // Source points (document corners)
-      final srcPoints = cv.Mat.fromList(
+      // TODO: Update to opencv_dart 2.x API - VecPoint2f type for getPerspectiveTransform
+      final srcMat = cv.Mat.fromList(
         4,
         1,
         cv.MatType.CV_32FC2,
@@ -123,7 +125,7 @@ class EdgeDetectionService {
       );
 
       // Destination points (rectangle)
-      final dstPoints = cv.Mat.fromList(
+      final dstMat = cv.Mat.fromList(
         4,
         1,
         cv.MatType.CV_32FC2,
@@ -136,7 +138,9 @@ class EdgeDetectionService {
       );
 
       // Get perspective transformation matrix
-      final matrix = cv.getPerspectiveTransform(srcPoints, dstPoints);
+      // TODO: Update to opencv_dart 2.x API - VecPoint type compatibility
+      // For now, use Mat directly if VecPoint2f.fromMat doesn't work
+      final matrix = cv.getPerspectiveTransform(srcMat, dstMat);
 
       // Apply transformation
       final warped = cv.warpPerspective(

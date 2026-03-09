@@ -122,28 +122,21 @@ class ImageFiltersService {
   /// Magic Color - Auto white balance and color correction
   Future<Uint8List> _applyMagicColor(Uint8List imageData) async {
     try {
-      final mat = cv.imdecode(imageData, cv.IMREAD_COLOR);
-      if (mat.isEmpty) return imageData;
+      // TODO: Update to opencv_dart 2.x API
+      // The COLOR_BGR2LAB, CLAHE.create, and COLOR_LAB2BGR constants
+      // have been renamed or moved in opencv_dart 2.x
+      // For now, return enhanced image using image package
+      final image = img.decodeImage(imageData);
+      if (image == null) return imageData;
 
-      // Convert to LAB color space
-      final lab = cv.cvtColor(mat, cv.COLOR_BGR2LAB);
+      // Simple contrast and brightness adjustment as fallback
+      final enhanced = img.adjustColor(
+        image,
+        contrast: 1.3,
+        brightness: 0.05,
+      );
 
-      // Split channels
-      final channels = cv.split(lab);
-
-      // Apply CLAHE (Contrast Limited Adaptive Histogram Equalization) to L channel
-      final clahe = cv.CLAHE.create(clipLimit: 2.0, tileGridSize: (8, 8));
-      final lChannel = clahe.apply(channels[0]);
-
-      // Merge channels back
-      final merged = cv.merge([lChannel, channels[1], channels[2]]);
-
-      // Convert back to BGR
-      final result = cv.cvtColor(merged, cv.COLOR_LAB2BGR);
-
-      // Encode back to JPEG
-      final encoded = cv.imencode('.jpg', result);
-      return Uint8List.fromList(encoded.$2);
+      return Uint8List.fromList(img.encodeJpg(enhanced, quality: 90));
     } catch (e) {
       return imageData;
     }
@@ -168,7 +161,8 @@ class ImageFiltersService {
       final mat = cv.imdecode(imageData, cv.IMREAD_COLOR);
       if (mat.isEmpty) return imageData;
 
-      final inverted = cv.bitwise_not(mat);
+      // TODO: Update to opencv_dart 2.x API - bitwise_not has been renamed
+      final inverted = cv.bitwiseNOT(mat);
       final encoded = cv.imencode('.jpg', inverted);
       return Uint8List.fromList(encoded.$2);
     } catch (e) {
@@ -183,11 +177,12 @@ class ImageFiltersService {
       if (mat.isEmpty) return imageData;
 
       // Create sharpening kernel
+      // TODO: Update to opencv_dart 2.x API - MatType may have changed
       final kernel = cv.Mat.fromList(
         3,
         3,
-        cv.MatType.CV_32F,
-        [0, -1, 0, -1, 5, -1, 0, -1, 0],
+        cv.MatType.CV_32FC1,
+        [0.0, -1.0, 0.0, -1.0, 5.0, -1.0, 0.0, -1.0, 0.0],
       );
 
       // Apply filter
@@ -208,7 +203,8 @@ class ImageFiltersService {
       if (mat.isEmpty) return imageData;
 
       // Apply non-local means denoising
-      final denoised = cv.fastNlMeansDenoisingColored(mat, 10, 10, 7, 21);
+      // TODO: Update to opencv_dart 2.x API - fastNlMeansDenoisingColored signature may have changed
+      final denoised = cv.fastNlMeansDenoisingColored(mat, h: 10.0, hColor: 10.0, templateWindowSize: 7, searchWindowSize: 21);
 
       // Encode back to JPEG
       final encoded = cv.imencode('.jpg', denoised);

@@ -32,7 +32,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    final scanSession = ref.read(scanSessionProvider.notifier);
+    // final scanSession = ref.read(scanSessionProvider.notifier); // Unused
     final controller = ref.read(cameraServiceProvider).controller;
 
     if (controller == null || !controller.value.isInitialized) {
@@ -182,7 +182,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
   Widget _buildCameraView(CameraController controller) {
     final sessionState = ref.watch(scanSessionProvider);
-    final size = MediaQuery.of(context).size;
+    // final size = MediaQuery.of(context).size; // Unused
 
     return Stack(
       fit: StackFit.expand,

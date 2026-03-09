@@ -89,7 +89,7 @@ class UploadService {
         if (_uploadApi == null) {
           throw Exception('Upload API not configured');
         }
-        return await _uploadApi.uploadDocument(
+        return await _uploadApi!.uploadDocument(
           documentPath: documentPath,
           title: title,
           category: category,
@@ -131,7 +131,7 @@ class UploadService {
       if (_uploadApi == null) {
         throw Exception('Upload API not configured');
       }
-      return await _uploadApi.getUploadStatus(documentId);
+      return await _uploadApi!.getUploadStatus(documentId);
     }
   }
 
@@ -143,7 +143,7 @@ class UploadService {
       if (_uploadApi == null) {
         throw Exception('Upload API not configured');
       }
-      return await _uploadApi.deleteDocument(documentId);
+      return await _uploadApi!.deleteDocument(documentId);
     }
   }
 

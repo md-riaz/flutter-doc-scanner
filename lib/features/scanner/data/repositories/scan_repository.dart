@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:ui' show Offset;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/scanned_page.dart';
 import '../../domain/entities/scan_session.dart';
