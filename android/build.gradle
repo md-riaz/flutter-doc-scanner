@@ -25,13 +25,16 @@ subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
 
     // Create flutter extension object for plugins to access flutter.* properties
-    project.ext.flutter = [
-        compileSdkVersion: 34,
-        minSdkVersion    : 21,
-        targetSdkVersion : 34,
-        ndkVersion       : "",
-        buildToolsVersion: "34.0.0"
-    ]
+    // Do not apply this to :app as it would shadow the FlutterExtension from dev.flutter.flutter-gradle-plugin
+    if (project.name != 'app') {
+        project.ext.flutter = [
+            compileSdkVersion: 34,
+            minSdkVersion    : 21,
+            targetSdkVersion : 34,
+            ndkVersion       : "",
+            buildToolsVersion: "34.0.0"
+        ]
+    }
 
     afterEvaluate { project ->
         if (project.hasProperty('android')) {
