@@ -55,14 +55,11 @@ jobs:
         cp build/app/outputs/flutter-apk/app-release.apk \
            build/app/outputs/flutter-apk/doc-scanner-v${VERSION}.apk
 
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Create Release and Upload APK
+      uses: softprops/action-gh-release@v1
       with:
         tag_name: v${{ github.event.inputs.version }}
-        release_name: Release v${{ github.event.inputs.version }}
+        name: Release v${{ github.event.inputs.version }}
         body: |
           ${{ github.event.inputs.release_notes }}
 
@@ -79,18 +76,12 @@ jobs:
           - Build Number: ${{ github.run_number }}
           - Commit: ${{ github.sha }}
           - Build Date: ${{ github.event.repository.updated_at }}
+        files: |
+          build/app/outputs/flutter-apk/doc-scanner-v${{ github.event.inputs.version }}.apk
         draft: false
         prerelease: false
-
-    - name: Upload Release APK
-      uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: build/app/outputs/flutter-apk/doc-scanner-v${{ github.event.inputs.version }}.apk
-        asset_name: doc-scanner-v${{ github.event.inputs.version }}.apk
-        asset_content_type: application/vnd.android.package-archive
 
     - name: Upload APK artifact (backup)
       uses: actions/upload-artifact@v4
