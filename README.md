@@ -59,8 +59,10 @@ Comprehensive documentation is available in the `/docs` folder:
 - [Implementation Status](docs/IMPLEMENTATION_STATUS.md)
 
 ### 🔍 Document Detection Documentation
+- **[Executive Summary](docs/EXECUTIVE_SUMMARY.md)** - Quick overview of all document detection features ⭐
 - **[Document Detection Guide](docs/DOCUMENT_DETECTION_GUIDE.md)** - Complete guide to camera, edge detection, and filters
 - **[Feature Verification Report](docs/FEATURE_VERIFICATION.md)** - Verification of all CamScanner-like features
+- **[Testing Guide](docs/TESTING_GUIDE.md)** - Comprehensive testing checklist and QA guide
 - [Edge Detection Details](docs/EDGE_DETECTION.md) - OpenCV edge detection implementation
 - [Image Filters Guide](docs/FILTERS.md) - 12 professional image filters
 - [Corner Adjustment Guide](docs/CORNER_ADJUSTMENT.md) - Manual corner adjustment UI
