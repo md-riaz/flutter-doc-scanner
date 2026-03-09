@@ -201,6 +201,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
 
   Future<void> _shareDocument(PdfDocument document) async {
     try {
+      // ignore: deprecated_member_use
       await Share.shareXFiles(
         [XFile(document.filePath)],
         subject: document.title,

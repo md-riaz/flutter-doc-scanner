@@ -63,10 +63,11 @@ class EdgeDetectionService {
       final approx = cv.approxPolyDP(largestContour, epsilon, true);
 
       // If we found a quadrilateral (4 points), use it
-      if (approx.rows == 4) {
+      // TODO: Update to opencv_dart 2.x API - VecPoint structure has changed
+      if (approx.length == 4) {
         final corners = <ui.Offset>[];
         for (var i = 0; i < 4; i++) {
-          final point = approx.at<cv.Point>(i, 0);
+          final point = approx[i];
           corners.add(ui.Offset(point.x.toDouble(), point.y.toDouble()));
         }
 
@@ -110,33 +111,23 @@ class EdgeDetectionService {
       final maxHeight = heightLeft > heightRight ? heightLeft : heightRight;
 
       // Source points (document corners)
-      final srcPoints = cv.Mat.fromList(
-        4,
-        1,
-        cv.MatType.CV_32FC2,
-        [
-          sortedCorners[0].dx, sortedCorners[0].dy,
-          sortedCorners[1].dx, sortedCorners[1].dy,
-          sortedCorners[2].dx, sortedCorners[2].dy,
-          sortedCorners[3].dx, sortedCorners[3].dy,
-        ],
-      );
+      final srcPoints = cv.VecPoint2f.fromList([
+        cv.Point2f(sortedCorners[0].dx, sortedCorners[0].dy),
+        cv.Point2f(sortedCorners[1].dx, sortedCorners[1].dy),
+        cv.Point2f(sortedCorners[2].dx, sortedCorners[2].dy),
+        cv.Point2f(sortedCorners[3].dx, sortedCorners[3].dy),
+      ]);
 
       // Destination points (rectangle)
-      final dstPoints = cv.Mat.fromList(
-        4,
-        1,
-        cv.MatType.CV_32FC2,
-        [
-          0.0, 0.0,
-          maxWidth, 0.0,
-          maxWidth, maxHeight,
-          0.0, maxHeight,
-        ],
-      );
+      final dstPoints = cv.VecPoint2f.fromList([
+        cv.Point2f(0.0, 0.0),
+        cv.Point2f(maxWidth, 0.0),
+        cv.Point2f(maxWidth, maxHeight),
+        cv.Point2f(0.0, maxHeight),
+      ]);
 
       // Get perspective transformation matrix
-      final matrix = cv.getPerspectiveTransform(srcPoints, dstPoints);
+      final matrix = cv.getPerspectiveTransform2f(srcPoints, dstPoints);
 
       // Apply transformation
       final warped = cv.warpPerspective(

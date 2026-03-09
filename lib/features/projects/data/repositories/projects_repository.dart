@@ -27,7 +27,7 @@ class ProjectsRepository {
         if (_projectsApi == null) {
           throw Exception('Projects API not configured');
         }
-        projectsData = await _projectsApi.getProjects();
+        projectsData = await _projectsApi!.getProjects();
       }
 
       return projectsData.map((data) => Project.fromJson(data)).toList();
@@ -47,7 +47,7 @@ class ProjectsRepository {
         if (_projectsApi == null) {
           throw Exception('Projects API not configured');
         }
-        projectData = await _projectsApi.getProject(id);
+        projectData = await _projectsApi!.getProject(id);
       }
 
       return Project.fromJson(projectData);
@@ -75,7 +75,7 @@ class ProjectsRepository {
         if (_projectsApi == null) {
           throw Exception('Projects API not configured');
         }
-        projectData = await _projectsApi.createProject(
+        projectData = await _projectsApi!.createProject(
           name: name,
           description: description,
           color: color,
@@ -109,7 +109,7 @@ class ProjectsRepository {
         if (_projectsApi == null) {
           throw Exception('Projects API not configured');
         }
-        projectData = await _projectsApi.updateProject(
+        projectData = await _projectsApi!.updateProject(
           id: id,
           name: name,
           description: description,
@@ -132,7 +132,7 @@ class ProjectsRepository {
         if (_projectsApi == null) {
           throw Exception('Projects API not configured');
         }
-        await _projectsApi.deleteProject(id);
+        await _projectsApi!.deleteProject(id);
       }
     } catch (e) {
       throw Exception('Failed to delete project: $e');

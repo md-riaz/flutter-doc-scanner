@@ -4,7 +4,7 @@ import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../providers/scan_session_provider.dart';
-import '../../../../core/constants/app_constants.dart';
+import '../../data/services/camera_service.dart';
 import 'package:go_router/go_router.dart';
 
 class CameraScreen extends ConsumerStatefulWidget {
@@ -33,7 +33,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    final scanSession = ref.read(scanSessionProvider.notifier);
+    // final scanSession = ref.read(scanSessionProvider.notifier); // Unused
     final controller = ref.read(cameraServiceProvider).controller;
 
     if (controller == null || !controller.value.isInitialized) {
@@ -183,7 +183,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
   Widget _buildCameraView(CameraController controller) {
     final sessionState = ref.watch(scanSessionProvider);
-    final size = MediaQuery.of(context).size;
+    // final size = MediaQuery.of(context).size; // Unused
 
     return Stack(
       fit: StackFit.expand,

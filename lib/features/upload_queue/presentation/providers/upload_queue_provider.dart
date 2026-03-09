@@ -150,7 +150,6 @@ class UploadQueueNotifier extends StateNotifier<UploadQueueState> {
         category: document.category,
         tags: document.tags,
         projectId: document.projectId,
-        folderId: document.folderId,
         onProgress: (sent, total) {
           final progress = sent / total;
           state = state.copyWith(

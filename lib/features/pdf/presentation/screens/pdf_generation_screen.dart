@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/pdf_generation_provider.dart';
 import '../../../scanner/presentation/providers/scan_session_provider.dart';
 import '../../../projects/presentation/providers/projects_provider.dart';
+import '../../domain/entities/pdf_document.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -362,6 +363,7 @@ class _PdfGenerationScreenState extends ConsumerState<PdfGenerationScreen> {
 
   Future<void> _sharePdf(PdfDocument document) async {
     try {
+      // ignore: deprecated_member_use
       await Share.shareXFiles(
         [XFile(document.filePath)],
         subject: document.title,
