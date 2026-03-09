@@ -18,6 +18,19 @@ allprojects {
     }
 }
 
+// Flutter SDK extension configuration for plugins
+subprojects {
+    afterEvaluate { project ->
+        if (project.hasProperty('android')) {
+            project.android {
+                if (!project.android.hasProperty('compileSdkVersion')) {
+                    compileSdkVersion 34
+                }
+            }
+        }
+    }
+}
+
 rootProject.buildDir = '../build'
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
