@@ -111,36 +111,23 @@ class EdgeDetectionService {
       final maxHeight = heightLeft > heightRight ? heightLeft : heightRight;
 
       // Source points (document corners)
-      // TODO: Update to opencv_dart 2.x API - VecPoint2f type for getPerspectiveTransform
-      final srcMat = cv.Mat.fromList(
-        4,
-        1,
-        cv.MatType.CV_32FC2,
-        [
-          sortedCorners[0].dx, sortedCorners[0].dy,
-          sortedCorners[1].dx, sortedCorners[1].dy,
-          sortedCorners[2].dx, sortedCorners[2].dy,
-          sortedCorners[3].dx, sortedCorners[3].dy,
-        ],
-      );
+      final srcPoints = cv.VecPoint2f.fromList([
+        cv.Point2f(sortedCorners[0].dx, sortedCorners[0].dy),
+        cv.Point2f(sortedCorners[1].dx, sortedCorners[1].dy),
+        cv.Point2f(sortedCorners[2].dx, sortedCorners[2].dy),
+        cv.Point2f(sortedCorners[3].dx, sortedCorners[3].dy),
+      ]);
 
       // Destination points (rectangle)
-      final dstMat = cv.Mat.fromList(
-        4,
-        1,
-        cv.MatType.CV_32FC2,
-        [
-          0.0, 0.0,
-          maxWidth, 0.0,
-          maxWidth, maxHeight,
-          0.0, maxHeight,
-        ],
-      );
+      final dstPoints = cv.VecPoint2f.fromList([
+        cv.Point2f(0.0, 0.0),
+        cv.Point2f(maxWidth, 0.0),
+        cv.Point2f(maxWidth, maxHeight),
+        cv.Point2f(0.0, maxHeight),
+      ]);
 
       // Get perspective transformation matrix
-      // TODO: Update to opencv_dart 2.x API - VecPoint type compatibility
-      // For now, use Mat directly if VecPoint2f.fromMat doesn't work
-      final matrix = cv.getPerspectiveTransform(srcMat, dstMat);
+      final matrix = cv.getPerspectiveTransform2f(srcPoints, dstPoints);
 
       // Apply transformation
       final warped = cv.warpPerspective(

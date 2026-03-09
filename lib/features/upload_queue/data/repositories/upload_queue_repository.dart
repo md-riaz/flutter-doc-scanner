@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart';
-import '../../../core/database/app_database.dart';
+import '../../../../core/database/app_database.dart';
 
 final uploadQueueRepositoryProvider = Provider<UploadQueueRepository>((ref) {
   final database = ref.watch(databaseProvider);
@@ -17,7 +17,7 @@ class UploadQueueRepository {
   Future<void> addToQueue(String documentId) async {
     await _database.insertQueueItem(
       UploadQueueCompanion.insert(
-        id: Value(documentId), // Use same ID as document for simplicity
+        id: documentId, // Use same ID as document for simplicity
         documentId: documentId,
         status: 'pending',
         createdAt: DateTime.now(),
@@ -49,7 +49,7 @@ class UploadQueueRepository {
     final item = await _database.getQueueItemById(id);
     if (item != null) {
       await _database.updateQueueItem(
-        item.copyWith(
+        item.toCompanion(true).copyWith(
           status: Value(status),
           updatedAt: Value(DateTime.now()),
           lastAttemptAt: Value(DateTime.now()),
@@ -64,7 +64,7 @@ class UploadQueueRepository {
     final item = await _database.getQueueItemById(id);
     if (item != null) {
       await _database.updateQueueItem(
-        item.copyWith(
+        item.toCompanion(true).copyWith(
           retryCount: Value(item.retryCount + 1),
           updatedAt: Value(DateTime.now()),
         ),

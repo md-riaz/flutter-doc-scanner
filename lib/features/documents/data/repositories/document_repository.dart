@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart';
 import 'dart:convert';
-import '../../../core/database/app_database.dart';
-import '../../pdf/domain/entities/pdf_document.dart' as pdf_entity;
+import '../../../../core/database/app_database.dart';
+import '../../../pdf/domain/entities/pdf_document.dart' as pdf_entity;
 
 final documentRepositoryProvider = Provider<DocumentRepository>((ref) {
   final database = ref.watch(databaseProvider);
@@ -82,7 +82,7 @@ class DocumentRepository {
     final doc = await _database.getDocumentById(documentId);
     if (doc != null) {
       await _database.updateDocument(
-        doc.copyWith(
+        doc.toCompanion(true).copyWith(
           isUploaded: const Value(true),
           uploadStatus: const Value('uploaded'),
           uploadedAt: Value(DateTime.now()),
