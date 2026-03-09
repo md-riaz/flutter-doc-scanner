@@ -23,7 +23,6 @@ rootProject.buildDir = '../build'
 // Flutter SDK extension configuration for plugins
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
-    project.evaluationDependsOn(':app')
 
     // Apply configuration before plugin evaluation to avoid property access issues
     project.ext.set("flutter.compileSdkVersion", 34)
