@@ -45,6 +45,7 @@ Comprehensive documentation is available in the `/docs` folder:
 - **[UI Wireframes](docs/UI_WIREFRAMES.md)** - Complete wireframes with design specifications
 
 ### 📚 Technical Documentation
+- [Release Workflow](docs/RELEASE_WORKFLOW.md) - How to create releases and download APKs
 - [Technical Specification](docs/TECHNICAL_SPECIFICATION.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Features](docs/FEATURES.md)
@@ -59,7 +60,21 @@ Comprehensive documentation is available in the `/docs` folder:
 
 ## Getting Started
 
-### Prerequisites
+### Download Pre-built APK
+
+If you just want to use the app without building from source:
+
+1. Go to the [Releases](https://github.com/md-riaz/flutter-doc-scanner/releases) page
+2. Download the latest APK file (e.g., `doc-scanner-v1.0.0.apk`)
+3. Enable "Install from Unknown Sources" in your Android settings
+4. Open the downloaded APK to install
+5. Login with mock credentials (see Mock Mode section below)
+
+See [Release Workflow Documentation](docs/RELEASE_WORKFLOW.md) for details.
+
+### Building from Source
+
+#### Prerequisites
 
 - Flutter SDK (>=3.0.0)
 - Android Studio / VS Code
