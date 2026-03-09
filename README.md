@@ -60,6 +60,7 @@ Comprehensive documentation is available in the `/docs` folder:
 
 ### 🔍 Document Detection Documentation
 - **[Executive Summary](docs/EXECUTIVE_SUMMARY.md)** - Quick overview of all document detection features ⭐
+- **[Package Usage Clarification](docs/PACKAGE_USAGE_CLARIFICATION.md)** - Which packages are used and why 📦
 - **[Document Detection Guide](docs/DOCUMENT_DETECTION_GUIDE.md)** - Complete guide to camera, edge detection, and filters
 - **[Feature Verification Report](docs/FEATURE_VERIFICATION.md)** - Verification of all CamScanner-like features
 - **[Testing Guide](docs/TESTING_GUIDE.md)** - Comprehensive testing checklist and QA guide
