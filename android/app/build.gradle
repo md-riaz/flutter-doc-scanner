@@ -28,7 +28,7 @@ flutter {
 
 android {
     namespace "com.example.doc_scanner"
-    compileSdk 35
+    compileSdk 34
     ndkVersion flutter.ndkVersion
 
     compileOptions {
