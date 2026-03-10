@@ -28,7 +28,7 @@ subprojects {
     // Do not apply this to :app as it would shadow the FlutterExtension from dev.flutter.flutter-gradle-plugin
     if (project.name != 'app') {
         project.ext.flutter = [
-            compileSdkVersion: 34,
+            compileSdkVersion: 36,
             minSdkVersion    : 21,
             targetSdkVersion : 34,
             ndkVersion       : "",
@@ -41,7 +41,7 @@ subprojects {
             project.android {
                 // Ensure compileSdkVersion is set for all plugins
                 if (!project.android.hasProperty('compileSdkVersion') || project.android.compileSdkVersion == null) {
-                    compileSdkVersion 34
+                    compileSdkVersion 36
                 }
 
                 // Provide default build configuration
