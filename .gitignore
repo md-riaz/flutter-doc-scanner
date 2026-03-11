@@ -1,4 +1,3 @@
-```
 # Dependencies
 .dart_tool/
 .packages
@@ -55,4 +54,3 @@ Thumbs.db
 *.tar.bz2
 *.tar.xz
 *.tar.zst
-```
