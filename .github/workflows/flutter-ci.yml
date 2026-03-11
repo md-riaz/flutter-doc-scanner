@@ -28,19 +28,18 @@ jobs:
       run: |
         sdkmanager "platform-tools" "platforms;android-36" "build-tools;34.0.0"
 
-    - name: Clean Gradle cache
-      run: |
-        cd android
-        ./gradlew clean --no-daemon
-        cd ..
-        rm -rf ~/.gradle/caches/
-
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
         flutter-version: '3.24.5'
         channel: 'stable'
         cache: false
+
+    - name: Clean Gradle cache
+      run: |
+        cd android
+        ./gradlew clean --no-daemon
+        cd ..
 
     - name: Get dependencies
       run: flutter pub get
