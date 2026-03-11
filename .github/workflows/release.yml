@@ -56,7 +56,7 @@ jobs:
     - name: Rename APK
       run: |
         VERSION="${{ github.event.inputs.version }}"
-        cp build/app/outputs/flutter-apk/app-release.apk \
+        cp android/app/build/outputs/apk/release/app-release.apk \
            build/app/outputs/flutter-apk/doc-scanner-v${VERSION}.apk
 
     - name: Create Release and Upload APK

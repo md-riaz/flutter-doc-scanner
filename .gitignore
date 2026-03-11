@@ -1,35 +1,54 @@
-# Dependencies
-.dart_tool/
-.packages
-.pub/
+```yaml
+# GitHub workflow artifacts
+.github/workflows/.DS_Store
 
-# Build
-build/
-ios/.generated/
-android/.generated/
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
 
-# Testing
-coverage/
-test/cov/
-
-# Environment
+# Environment files
 .env
 .env.local
 *.env.*
 
-# Logs
-*.log
-**/logs
-
-# OS generated files
-.DS_Store
-Thumbs.db
-
-# IDE files
+# Editor/IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Dependencies
+node_modules/
+venv/
+.venv/
+__pycache__/
+.mypy_cache/
+.pytest_cache/
+dist/
+build/
+target/
+.gradle/
+
+# Compiled files
+*.pyc
+*.class
+*.o
+*.exe
+*.dll
+*.so
+*.a
+*.obj
+*.out
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
 
 # Compressed files
 *.zip
@@ -54,3 +73,4 @@ Thumbs.db
 *.tar.bz2
 *.tar.xz
 *.tar.zst
+```
