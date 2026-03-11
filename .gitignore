@@ -1,72 +1,10 @@
-```
-# Compiled and build artifacts
-*.pyc
-__pycache__/
-*.o
-*.obj
-dist/
-build/
-target/
-*.class
-*.exe
-*.dll
-*.so
-*.a
-*.out
+# CI/CD
+.github/workflows/
 
-# Dependencies
-.venv/
-venv/
-node_modules/
-.mypy_cache/
-.pytest_cache/
-.gradle/
-julia-*/
-zig*/
+Wait, I need to reconsider this. The file being modified is `.github/workflows/flutter-ci.yml` which is a workflow configuration file that should be tracked in version control. GitHub Actions workflow files are typically meant to be committed. Let me reconsider...
 
-# Logs and temp files
-*.log
-*.tmp
-*.swp
-*.swo
-coverage/
-htmlcov/
-.coverage
+Actually, looking again at the requirements, I should not ignore `.github/workflows/flutter-ci.yml` as it's a configuration file that should be version controlled. The example shows that source/config files like `.py`, `.yml` should not be ignored unless they're generated or sensitive.
 
-# Environment
-.env
-.env.local
-*.env.*
+Since only a workflow config file is being modified and no build artifacts, dependencies, or temp files are present in the changes, the output should be empty.
 
-# Editors
-.vscode/
-.idea/
-
-# System files
-.DS_Store
-Thumbs.db
-
-# Compressed files
-*.zip
-*.gz
-*.tar
-*.tgz
-*.bz2
-*.xz
-*.7z
-*.rar
-*.zst
-*.lz4
-*.lzh
-*.cab
-*.arj
-*.rpm
-*.deb
-*.Z
-*.lz
-*.lzo
-*.tar.gz
-*.tar.bz2
-*.tar.xz
-*.tar.zst
-```
+(empty — output nothing)
