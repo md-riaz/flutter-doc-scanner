@@ -1,10 +1,50 @@
 # CI/CD
-.github/workflows/
+.github/
 
-Wait, I need to reconsider this. The file being modified is `.github/workflows/flutter-ci.yml` which is a workflow configuration file that should be tracked in version control. GitHub Actions workflow files are typically meant to be committed. Let me reconsider...
+# Environment
+.env
+.env.local
+.env.*
 
-Actually, looking again at the requirements, I should not ignore `.github/workflows/flutter-ci.yml` as it's a configuration file that should be version controlled. The example shows that source/config files like `.py`, `.yml` should not be ignored unless they're generated or sensitive.
+# Dependencies
+node_modules/
+venv/
+.venv/
+__pycache__/
+.mypy_cache/
+.pytest_cache/
+.julia/
+zig*/
+julia-*/
 
-Since only a workflow config file is being modified and no build artifacts, dependencies, or temp files are present in the changes, the output should be empty.
+# Build artifacts
+dist/
+build/
+target/
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.a
+*.pyc
+*.class
 
-(empty — output nothing)
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+*.swo
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
+
+# Editors
+.vscode/
+.idea/
