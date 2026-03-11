@@ -40,6 +40,9 @@ jobs:
     - name: Generate code
       run: dart run build_runner build --delete-conflicting-outputs
 
+    - name: Make gradlew executable
+      run: chmod +x ./android/gradlew
+
     - name: Clean Gradle Cache
       run: cd android && ./gradlew clean --no-daemon
 
