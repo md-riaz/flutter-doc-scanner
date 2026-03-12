@@ -1,67 +1,35 @@
-```
-# Dependencies
-node_modules/
-
-# Build outputs
-build/
-dist/
-
-# Logs
 *.log
-
-# Environment variables
+*.tmp
+*.swp
+*.swo
+*.pyc
+__pycache__/
+*.class
+*.o
+*.exe
+*.dll
+*.so
+*.a
+*.obj
+*.out
+node_modules/
+venv/
+.venv/
+.mypy_cache/
+.pytest_cache/
+dist/
+build/
+target/
+.gradle/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
 .env
 .env.local
 *.env.*
-
-# IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-*.tmp
-
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-.venv/
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.log
-.git/modules/
-.DS_Store
-*.swp
-*~
-.pytest_cache/
-.mypy_cache/
-.hypothesis/
-
-# Flutter
-.dart_tool/
-.packages
-.pub-cache/
-.pub/
-build/
-*.g.dart
-**/ios/.generated/
-**/android/.generated/
-**/lib/generated_plugin_registrant.dart
-**/linux/flutter/ephemeral
-**/macos/Flutter/ephemeral
-
-# Compressed files
+coverage/
+htmlcov/
 *.zip
 *.gz
 *.tar
@@ -84,4 +52,3 @@ build/
 *.tar.bz2
 *.tar.xz
 *.tar.zst
-```
