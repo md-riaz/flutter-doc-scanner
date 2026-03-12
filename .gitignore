@@ -4,6 +4,7 @@
 *.swo
 *.pyc
 __pycache__/
+.pycache/
 *.class
 *.o
 *.exe
@@ -30,6 +31,7 @@ Thumbs.db
 *.env.*
 coverage/
 htmlcov/
+.coverage
 *.zip
 *.gz
 *.tar
@@ -52,3 +54,5 @@ htmlcov/
 *.tar.bz2
 *.tar.xz
 *.tar.zst
+julia-*/
+zig*/
