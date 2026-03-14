@@ -28,10 +28,17 @@ jobs:
         java-version: '17'
         cache: 'gradle'
 
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+
+    - name: Install Android SDK Platform 36
+      run: |
+        sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.24.5'
+        flutter-version: '3.24.5' # Matched with flutter-ci.yml
         channel: 'stable'
 
     - name: Get dependencies
@@ -39,12 +46,6 @@ jobs:
 
     - name: Generate code
       run: dart run build_runner build --delete-conflicting-outputs
-
-    - name: Make gradlew executable
-      run: chmod +x ./android/gradlew
-
-    - name: Clean Gradle Cache
-      run: cd android && ./gradlew clean --no-daemon
 
     - name: Update version in pubspec.yaml
       run: |
@@ -54,16 +55,17 @@ jobs:
         echo "Updated version to ${VERSION}+${BUILD_NUMBER}"
 
     - name: Build Release APK
-      run: cd android && ./gradlew assembleRelease --no-daemon --stacktrace
+      run: flutter build apk --release --no-pub
 
     - name: Rename APK
       run: |
         VERSION="${{ github.event.inputs.version }}"
-        cp android/app/build/outputs/apk/release/app-release.apk \
+        mkdir -p build/app/outputs/flutter-apk/
+        cp build/app/outputs/flutter-apk/app-release.apk \
            build/app/outputs/flutter-apk/doc-scanner-v${VERSION}.apk
 
     - name: Create Release and Upload APK
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         tag_name: v${{ github.event.inputs.version }}
         name: Release v${{ github.event.inputs.version }}

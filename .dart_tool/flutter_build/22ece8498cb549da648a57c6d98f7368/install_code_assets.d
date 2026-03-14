@@ -1,0 +1,1 @@
+ C:\\Users\\vm_user\\Downloads\\flutter-doc-scanner\\.dart_tool\\flutter_build\\22ece8498cb549da648a57c6d98f7368\\native_assets.json: 
