@@ -120,11 +120,10 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         }
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to import image: $e')),
-        );
-      }
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to import image: $e')),
+      );
     }
   }
 
@@ -481,11 +480,12 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     );
 
     final camera = ref.read(cameraServiceProvider).controller;
-    if (camera == null) {
+    final description = camera?.description;
+    if (description == null) {
       return normalized;
     }
 
-    final sensorOrientation = camera.description.sensorOrientation % 360;
+    final sensorOrientation = description.sensorOrientation % 360;
     final rotated = switch (sensorOrientation) {
       90 => Offset(1 - normalized.dy, normalized.dx),
       180 => Offset(1 - normalized.dx, 1 - normalized.dy),
@@ -493,7 +493,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       _ => normalized,
     };
 
-    if (camera.description.lensDirection == CameraLensDirection.front) {
+    if (description.lensDirection == CameraLensDirection.front) {
       return Offset(1 - rotated.dx, rotated.dy);
     }
 
