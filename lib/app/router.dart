@@ -74,7 +74,9 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'preview',
             name: 'scanner-preview',
-            builder: (context, state) => const PagePreviewScreen(),
+            builder: (context, state) => PagePreviewScreen(
+              pageId: state.uri.queryParameters['pageId'],
+            ),
           ),
           GoRoute(
             path: 'review',

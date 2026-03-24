@@ -52,6 +52,15 @@ class ScanReviewScreen extends ConsumerWidget {
             onTap: () {
               _showPageDetail(context, ref, page);
             },
+            onEdit: () {
+              context.push('/scanner/preview?pageId=${page.id}');
+            },
+            onRotateLeft: () {
+              ref.read(scanSessionProvider.notifier).rotatePage(page.id, -90);
+            },
+            onRotateRight: () {
+              ref.read(scanSessionProvider.notifier).rotatePage(page.id, 90);
+            },
             onDelete: () {
               _confirmDelete(context, ref, page);
             },
@@ -123,11 +132,10 @@ class ScanReviewScreen extends ConsumerWidget {
                     child: ElevatedButton.icon(
                       onPressed: () {
                         Navigator.pop(context);
-                        // Navigate to corner adjustment screen
-                        context.push('/scanner/corner-adjustment/${page.id}');
+                        context.push('/scanner/preview?pageId=${page.id}');
                       },
                       icon: const Icon(Icons.edit),
-                      label: const Text('Edit'),
+                      label: const Text('Re-Edit'),
                     ),
                   ),
                 ],
@@ -166,12 +174,18 @@ class ScanReviewScreen extends ConsumerWidget {
 class _PageListItem extends StatelessWidget {
   final ScannedPage page;
   final VoidCallback onTap;
+  final VoidCallback onEdit;
+  final VoidCallback onRotateLeft;
+  final VoidCallback onRotateRight;
   final VoidCallback onDelete;
 
   const _PageListItem({
     required Key key,
     required this.page,
     required this.onTap,
+    required this.onEdit,
+    required this.onRotateLeft,
+    required this.onRotateRight,
     required this.onDelete,
   }) : super(key: key);
 
@@ -224,6 +238,24 @@ class _PageListItem extends StatelessWidget {
                     Text(
                       _formatDateTime(page.capturedAt),
                       style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 4,
+                      children: [
+                        ActionChip(
+                          label: const Text('Edit'),
+                          onPressed: onEdit,
+                        ),
+                        ActionChip(
+                          label: const Text('Rotate L'),
+                          onPressed: onRotateLeft,
+                        ),
+                        ActionChip(
+                          label: const Text('Rotate R'),
+                          onPressed: onRotateRight,
+                        ),
+                      ],
                     ),
                   ],
                 ),

@@ -3,10 +3,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/scan_session_provider.dart';
+import '../../domain/entities/scan_session.dart';
+import '../../domain/entities/scanned_page.dart';
 import '../../data/services/image_filters_service.dart';
 
 class PagePreviewScreen extends ConsumerStatefulWidget {
-  const PagePreviewScreen({super.key});
+  final String? pageId;
+
+  const PagePreviewScreen({
+    super.key,
+    this.pageId,
+  });
 
   @override
   ConsumerState<PagePreviewScreen> createState() => _PagePreviewScreenState();
@@ -20,6 +27,18 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
   final Map<ImageFilter, Uint8List?> _previewCache = {
     ImageFilter.none: null,
   };
+
+  bool get _isEditingExistingPage => widget.pageId != null;
+
+  void _resetPreviewState() {
+    setState(() {
+      _selectedFilter = ImageFilter.none;
+      _filteredImageData = null;
+      _previewCache
+        ..clear()
+        ..[ImageFilter.none] = null;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,25 +55,74 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
       );
     }
 
-    final lastPage = session.pages.last;
-    final displayImage = _filteredImageData ?? lastPage.imageData;
+    final page = _resolvePage(session);
+    if (page == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.go('/scanner/review');
+      });
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final displayImage = _filteredImageData ?? page.imageData;
 
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        title: Text('Page ${lastPage.pageNumber}'),
+        title: Text(_isEditingExistingPage
+            ? 'Edit Page ${page.pageNumber}'
+            : 'Page ${page.pageNumber}'),
         actions: [
           IconButton(
-            onPressed: () {
-              // Retake - remove the page and go back
-              ref.read(scanSessionProvider.notifier).removePage(lastPage.id);
-              context.pop();
+            onPressed: () async {
+              await context.push('/scanner/corner-adjustment/${page.id}');
+              if (mounted) {
+                _resetPreviewState();
+              }
             },
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Retake',
+            icon: const Icon(Icons.crop_free),
+            tooltip: 'Adjust Corners',
           ),
+          IconButton(
+            onPressed: sessionState.isLoading
+                ? null
+                : () async {
+                    await ref
+                        .read(scanSessionProvider.notifier)
+                        .rotatePage(page.id, -90);
+                    if (mounted) {
+                      _resetPreviewState();
+                    }
+                  },
+            icon: const Icon(Icons.rotate_left),
+            tooltip: 'Rotate Left',
+          ),
+          IconButton(
+            onPressed: sessionState.isLoading
+                ? null
+                : () async {
+                    await ref
+                        .read(scanSessionProvider.notifier)
+                        .rotatePage(page.id, 90);
+                    if (mounted) {
+                      _resetPreviewState();
+                    }
+                  },
+            icon: const Icon(Icons.rotate_right),
+            tooltip: 'Rotate Right',
+          ),
+          if (!_isEditingExistingPage)
+            IconButton(
+              onPressed: () {
+                ref.read(scanSessionProvider.notifier).removePage(page.id);
+                context.pop();
+              },
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Retake',
+            ),
         ],
       ),
       body: Column(
@@ -114,7 +182,7 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
                                 fit: StackFit.expand,
                                 children: [
                                   Image.memory(
-                                    lastPage.imageData,
+                                    page.imageData,
                                     fit: BoxFit.cover,
                                   ),
                                   if (isSelected)
@@ -174,11 +242,18 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: () {
-                          // Apply processing and add another page
-                          _processAndContinue();
+                          _isEditingExistingPage
+                              ? context.pop()
+                              : _processAndContinue();
                         },
-                        icon: const Icon(Icons.add),
-                        label: const Text('Add More Pages'),
+                        icon: Icon(
+                          _isEditingExistingPage ? Icons.close : Icons.add,
+                        ),
+                        label: Text(
+                          _isEditingExistingPage
+                              ? 'Cancel'
+                              : 'Add More Pages',
+                        ),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.white,
                           side: const BorderSide(color: Colors.white),
@@ -190,11 +265,14 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
                     Expanded(
                       child: ElevatedButton.icon(
                         onPressed: () {
-                          // Apply processing and finish
-                          _processAndFinish();
+                          _isEditingExistingPage
+                              ? _saveEditsAndReturn()
+                              : _processAndFinish();
                         },
                         icon: const Icon(Icons.check),
-                        label: const Text('Done'),
+                        label: Text(
+                          _isEditingExistingPage ? 'Save Changes' : 'Done',
+                        ),
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.all(16),
                         ),
@@ -284,6 +362,42 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
     }
   }
 
+  Future<void> _saveEditsAndReturn() async {
+    setState(() {
+      _isApplyingFilter = true;
+    });
+
+    try {
+      final pageId = widget.pageId!;
+      await _applySelectedFilterToPage(pageId);
+
+      final updatedPage = ref.read(scanSessionProvider).session!.pages
+          .firstWhere((page) => page.id == pageId);
+      if (_autoEnhance && !updatedPage.isProcessed) {
+        await ref.read(scanSessionProvider.notifier).processPage(
+              pageId,
+              autoEnhance: _autoEnhance,
+            );
+      }
+
+      if (mounted) {
+        context.pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save changes: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isApplyingFilter = false;
+        });
+      }
+    }
+  }
+
   Future<void> _applySelectedFilterToPage(String pageId) async {
     if (_selectedFilter == ImageFilter.none) {
       return;
@@ -321,7 +435,10 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
 
     try {
       final sessionState = ref.read(scanSessionProvider);
-      final lastPage = sessionState.session!.pages.last;
+      final page = _resolvePage(sessionState.session!);
+      if (page == null) {
+        throw Exception('Page not found');
+      }
 
       if (filter == ImageFilter.none) {
         setState(() {
@@ -333,7 +450,7 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
 
       final filterService = ref.read(imageFiltersServiceProvider);
       final filtered = await filterService.applyPreviewFilter(
-        lastPage.imageData,
+        page.imageData,
         filter,
       );
 
@@ -354,5 +471,17 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
         );
       }
     }
+  }
+
+  ScannedPage? _resolvePage(ScanSession session) {
+    if (widget.pageId == null) {
+      return session.pages.last;
+    }
+
+    final index = session.pages.indexWhere((page) => page.id == widget.pageId);
+    if (index == -1) {
+      return null;
+    }
+    return session.pages[index];
   }
 }

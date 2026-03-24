@@ -17,6 +17,14 @@ class CameraScreen extends ConsumerStatefulWidget {
 class _CameraScreenState extends ConsumerState<CameraScreen>
     with WidgetsBindingObserver {
   bool _isFlashOn = false;
+  int _tipIndex = 0;
+
+  static const List<String> _scanTips = [
+    'Keep the page flat inside the frame',
+    'Avoid shadows across the document',
+    'Use even lighting for sharper text',
+    'Hold steady before tapping capture',
+  ];
 
   @override
   void initState() {
@@ -290,14 +298,27 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
               color: Colors.black.withValues(alpha: 0.6),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Text(
-              'Position the document within the frame',
+            child: Text(
+              _scanTips[_tipIndex],
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 14,
               ),
             ),
+          ),
+        ),
+        Positioned(
+          top: 20,
+          right: 20,
+          child: FilledButton.tonalIcon(
+            onPressed: () {
+              setState(() {
+                _tipIndex = (_tipIndex + 1) % _scanTips.length;
+              });
+            },
+            icon: const Icon(Icons.tips_and_updates),
+            label: const Text('Tips'),
           ),
         ),
       ],

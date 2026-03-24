@@ -213,6 +213,44 @@ class ScanSessionNotifier extends StateNotifier<ScanSessionState> {
     state = state.copyWith(session: updatedSession);
   }
 
+  /// Rotate a page image
+  Future<void> rotatePage(String pageId, double angle) async {
+    if (state.session == null) return;
+
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final pageIndex = state.session!.pages.indexWhere((p) => p.id == pageId);
+      if (pageIndex == -1) {
+        throw Exception('Page not found');
+      }
+
+      final page = state.session!.pages[pageIndex];
+      final rotatedImage = await _scanRepository.rotateImage(page.imageData, angle);
+      final updatedPage = page.copyWith(
+        imageData: rotatedImage,
+        isProcessed: true,
+      );
+
+      final updatedPages = [...state.session!.pages];
+      updatedPages[pageIndex] = updatedPage;
+
+      final updatedSession = state.session!.copyWith(
+        pages: updatedPages,
+        updatedAt: DateTime.now(),
+      );
+
+      state = state.copyWith(
+        session: updatedSession,
+        isLoading: false,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: 'Failed to rotate page: ${e.toString()}',
+      );
+    }
+  }
+
   /// Reorder pages
   void reorderPages(int oldIndex, int newIndex) {
     if (state.session == null) return;
