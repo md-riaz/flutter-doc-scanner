@@ -1,11 +1,11 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../domain/entities/scan_session.dart';
-import '../../domain/entities/scanned_page.dart';
-import '../../data/repositories/scan_repository.dart';
-import '../../data/services/camera_service.dart';
-import '../../data/services/image_processing_service.dart';
+import 'package:doc_scanner/features/scanner/domain/entities/scan_session.dart';
+import 'package:doc_scanner/features/scanner/domain/entities/scanned_page.dart';
+import 'package:doc_scanner/features/scanner/data/repositories/scan_repository.dart';
+import 'package:doc_scanner/features/scanner/data/services/camera_service.dart';
+import 'package:doc_scanner/features/scanner/data/services/image_processing_service.dart';
 
 // State class for scan session
 class ScanSessionState {
@@ -204,6 +204,27 @@ class ScanSessionNotifier extends StateNotifier<ScanSessionState> {
     state = state.copyWith(session: updatedSession);
   }
 
+  /// Remove multiple pages from the session.
+  void removePages(List<String> pageIds) {
+    if (state.session == null || pageIds.isEmpty) return;
+
+    final selectedIds = pageIds.toSet();
+    final updatedPages = state.session!.pages
+        .where((p) => !selectedIds.contains(p.id))
+        .toList();
+
+    final renumberedPages = updatedPages.asMap().entries.map((entry) {
+      return entry.value.copyWith(pageNumber: entry.key + 1);
+    }).toList();
+
+    final updatedSession = state.session!.copyWith(
+      pages: renumberedPages,
+      updatedAt: DateTime.now(),
+    );
+
+    state = state.copyWith(session: updatedSession);
+  }
+
   /// Duplicate an existing page and insert it after the original.
   void duplicatePage(String pageId) {
     if (state.session == null) return;
@@ -219,6 +240,37 @@ class ScanSessionNotifier extends StateNotifier<ScanSessionState> {
 
     final updatedPages = [...state.session!.pages];
     updatedPages.insert(pageIndex + 1, duplicatedPage);
+
+    final renumberedPages = updatedPages.asMap().entries.map((entry) {
+      return entry.value.copyWith(pageNumber: entry.key + 1);
+    }).toList();
+
+    final updatedSession = state.session!.copyWith(
+      pages: renumberedPages,
+      updatedAt: DateTime.now(),
+    );
+
+    state = state.copyWith(session: updatedSession);
+  }
+
+  /// Duplicate multiple pages and insert each duplicate after its original.
+  void duplicatePages(List<String> pageIds) {
+    if (state.session == null || pageIds.isEmpty) return;
+
+    final selectedIds = pageIds.toSet();
+    final updatedPages = <ScannedPage>[];
+
+    for (final page in state.session!.pages) {
+      updatedPages.add(page);
+      if (selectedIds.contains(page.id)) {
+        updatedPages.add(
+          page.copyWith(
+            id: '${page.id}-copy-${DateTime.now().microsecondsSinceEpoch}',
+            capturedAt: DateTime.now(),
+          ),
+        );
+      }
+    }
 
     final renumberedPages = updatedPages.asMap().entries.map((entry) {
       return entry.value.copyWith(pageNumber: entry.key + 1);

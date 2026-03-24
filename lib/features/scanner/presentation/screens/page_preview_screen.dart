@@ -2,11 +2,11 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../providers/scan_session_provider.dart';
-import '../../domain/entities/scan_session.dart';
-import '../../domain/entities/scanned_page.dart';
-import '../../data/services/image_processing_service.dart';
-import '../../data/services/image_filters_service.dart';
+import 'package:doc_scanner/features/scanner/presentation/providers/scan_session_provider.dart';
+import 'package:doc_scanner/features/scanner/domain/entities/scan_session.dart';
+import 'package:doc_scanner/features/scanner/domain/entities/scanned_page.dart';
+import 'package:doc_scanner/features/scanner/data/services/image_processing_service.dart';
+import 'package:doc_scanner/features/scanner/data/services/image_filters_service.dart';
 
 class PagePreviewScreen extends ConsumerStatefulWidget {
   final String? pageId;

@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import '../providers/scan_session_provider.dart';
-import '../../data/services/camera_service.dart';
-import '../../data/services/edge_detection_service.dart';
+import 'package:doc_scanner/features/scanner/presentation/providers/scan_session_provider.dart';
+import 'package:doc_scanner/features/scanner/data/services/camera_service.dart';
+import 'package:doc_scanner/features/scanner/data/services/edge_detection_service.dart';
 import 'package:go_router/go_router.dart';
 
 class CameraScreen extends ConsumerStatefulWidget {

@@ -1,10 +1,10 @@
 import 'dart:typed_data';
 import 'dart:ui' as ui show Offset, instantiateImageCodec;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../domain/entities/scanned_page.dart';
-import '../../domain/entities/scan_session.dart';
-import '../services/camera_service.dart';
-import '../services/image_processing_service.dart';
+import 'package:doc_scanner/features/scanner/domain/entities/scanned_page.dart';
+import 'package:doc_scanner/features/scanner/domain/entities/scan_session.dart';
+import 'package:doc_scanner/features/scanner/data/services/camera_service.dart';
+import 'package:doc_scanner/features/scanner/data/services/image_processing_service.dart';
 import 'package:uuid/uuid.dart';
 
 final scanRepositoryProvider = Provider<ScanRepository>((ref) {

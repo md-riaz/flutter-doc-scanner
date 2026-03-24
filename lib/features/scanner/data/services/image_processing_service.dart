@@ -2,9 +2,9 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image/image.dart' as img;
-import '../../domain/entities/scanned_page.dart';
-import 'edge_detection_service.dart';
-import 'image_filters_service.dart';
+import 'package:doc_scanner/features/scanner/domain/entities/scanned_page.dart';
+import 'package:doc_scanner/features/scanner/data/services/edge_detection_service.dart';
+import 'package:doc_scanner/features/scanner/data/services/image_filters_service.dart';
 
 final imageProcessingServiceProvider = Provider<ImageProcessingService>((ref) {
   return ImageProcessingService(
@@ -242,6 +242,12 @@ class ImageProcessingService {
       maxDimension: 1400,
     );
   }
+
+  Future<ScanQualityAssessment> analyzeDocumentQuality(
+    Uint8List imageData,
+  ) {
+    return compute(_analyzeDocumentQualityInBackground, imageData);
+  }
 }
 
 Uint8List _applyDocumentEditsInBackground(Map<String, dynamic> payload) {
@@ -356,4 +362,132 @@ img.Image _applySharpness(img.Image image, double sharpness) {
     sharpened,
     contrast: 1.0 + (amount * 0.08),
   );
+}
+
+ScanQualityAssessment _analyzeDocumentQualityInBackground(Uint8List imageData) {
+  try {
+    var image = img.decodeImage(imageData);
+    if (image == null) {
+      return const ScanQualityAssessment(warnings: ['Unreadable']);
+    }
+
+    final longestSide = image.width > image.height ? image.width : image.height;
+    if (longestSide > 900) {
+      image = image.width >= image.height
+          ? img.copyResize(image, width: 900)
+          : img.copyResize(image, height: 900);
+    }
+
+    var brightnessSum = 0.0;
+    var brightnessSquaredSum = 0.0;
+    var edgeEnergy = 0.0;
+    var samples = 0;
+
+    for (var y = 0; y < image.height - 1; y++) {
+      for (var x = 0; x < image.width - 1; x++) {
+        final pixel = image.getPixel(x, y);
+        final right = image.getPixel(x + 1, y);
+        final below = image.getPixel(x, y + 1);
+
+        final luma = _pixelLuma(pixel.r.toDouble(), pixel.g.toDouble(), pixel.b.toDouble());
+        final lumaRight = _pixelLuma(
+          right.r.toDouble(),
+          right.g.toDouble(),
+          right.b.toDouble(),
+        );
+        final lumaBelow = _pixelLuma(
+          below.r.toDouble(),
+          below.g.toDouble(),
+          below.b.toDouble(),
+        );
+
+        brightnessSum += luma;
+        brightnessSquaredSum += luma * luma;
+        edgeEnergy += (luma - lumaRight).abs() + (luma - lumaBelow).abs();
+        samples++;
+      }
+    }
+
+    if (samples == 0) {
+      return const ScanQualityAssessment(warnings: ['Unreadable']);
+    }
+
+    final avgBrightness = brightnessSum / samples;
+    final variance = (brightnessSquaredSum / samples) - (avgBrightness * avgBrightness);
+    final contrastSpread = variance <= 0 ? 0.0 : variance.sqrtSafe();
+    final sharpness = edgeEnergy / (samples * 2);
+
+    final warnings = <String>[];
+    if (avgBrightness < 80) {
+      warnings.add('Too dark');
+    } else if (avgBrightness > 220) {
+      warnings.add('Overexposed');
+    }
+    if (contrastSpread < 28) {
+      warnings.add('Low contrast');
+    }
+    if (sharpness < 12) {
+      warnings.add('Blurry');
+    }
+
+    final score = (100 -
+            (avgBrightness < 80 ? 20 : 0) -
+            (avgBrightness > 220 ? 18 : 0) -
+            (contrastSpread < 28 ? 18 : 0) -
+            (sharpness < 12 ? 24 : 0))
+        .clamp(20, 100)
+        .toInt();
+
+    return ScanQualityAssessment(
+      score: score,
+      averageBrightness: avgBrightness,
+      contrastSpread: contrastSpread,
+      sharpness: sharpness,
+      warnings: warnings,
+    );
+  } catch (_) {
+    return const ScanQualityAssessment(warnings: ['Unreadable']);
+  }
+}
+
+double _pixelLuma(double r, double g, double b) {
+  return (0.299 * r) + (0.587 * g) + (0.114 * b);
+}
+
+class ScanQualityAssessment {
+  final int score;
+  final double averageBrightness;
+  final double contrastSpread;
+  final double sharpness;
+  final List<String> warnings;
+
+  const ScanQualityAssessment({
+    this.score = 100,
+    this.averageBrightness = 0,
+    this.contrastSpread = 0,
+    this.sharpness = 0,
+    this.warnings = const [],
+  });
+
+  bool get hasWarnings => warnings.isNotEmpty;
+}
+
+extension on double {
+  double sqrtSafe() {
+    if (this <= 0) {
+      return 0;
+    }
+    return switch (this) {
+      final value when value <= 1 => value,
+      _ => _sqrtNewton(this),
+    };
+  }
+}
+
+double _sqrtNewton(double value) {
+  var estimate = value / 2;
+  for (var i = 0; i < 8; i++) {
+    estimate = (estimate + (value / estimate)) / 2;
+  }
+  return estimate;
 }
