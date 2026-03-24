@@ -90,8 +90,8 @@ class ScanRepository {
           ? ScannedPageCorners(
               topLeft: corners[0],
               topRight: corners[1],
-              bottomLeft: corners[2],
-              bottomRight: corners[3],
+              bottomRight: corners[2],
+              bottomLeft: corners[3],
             )
           : null,
     );

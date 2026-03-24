@@ -39,9 +39,9 @@ class _CornerAdjustmentScreenState
 
     try {
       final sessionState = ref.read(scanSessionProvider);
-      _page = sessionState.session?.pages.firstWhere(
-        (p) => p.id == widget.pageId,
-      );
+      final pages = sessionState.session?.pages ?? const <ScannedPage>[];
+      final matchIndex = pages.indexWhere((p) => p.id == widget.pageId);
+      _page = matchIndex >= 0 ? pages[matchIndex] : null;
 
       if (_page == null) {
         if (mounted) {
@@ -164,9 +164,17 @@ class _CornerAdjustmentScreenState
 
   @override
   Widget build(BuildContext context) {
-    if (_page == null) {
+    if (_isLoading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_page == null) {
+      return const Scaffold(
+        body: Center(
+          child: Text('Page not found'),
+        ),
       );
     }
 
@@ -435,8 +443,8 @@ class _DraggableCornerState extends State<_DraggableCorner> {
           height: 40,
           decoration: BoxDecoration(
             color: _isDragging
-                ? Colors.blue.withOpacity(0.8)
-                : Colors.blue.withOpacity(0.6),
+                ? Colors.blue.withValues(alpha: 0.8)
+                : Colors.blue.withValues(alpha: 0.6),
             shape: BoxShape.circle,
             border: Border.all(
               color: Colors.white,
@@ -444,7 +452,7 @@ class _DraggableCornerState extends State<_DraggableCorner> {
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.5),
+                color: Colors.black.withValues(alpha: 0.5),
                 blurRadius: 8,
                 spreadRadius: 2,
               ),
@@ -504,7 +512,7 @@ class _CornerOverlayPainter extends CustomPainter {
 
     canvas.drawPath(
       overlayPath,
-      Paint()..color = Colors.black.withOpacity(0.5),
+      Paint()..color = Colors.black.withValues(alpha: 0.5),
     );
 
     // Draw quadrilateral border
@@ -517,7 +525,7 @@ class _CornerOverlayPainter extends CustomPainter {
 
     // Draw lines connecting corners
     final linePaint = Paint()
-      ..color = Colors.blue.withOpacity(0.8)
+      ..color = Colors.blue.withValues(alpha: 0.8)
       ..strokeWidth = 2;
 
     for (int i = 0; i < 4; i++) {

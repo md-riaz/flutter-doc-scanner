@@ -35,4 +35,7 @@ class AppConstants {
   // Retry Settings
   static const int maxRetryAttempts = 3;
   static const Duration retryDelay = Duration(seconds: 5);
+
+  // Upload Behavior
+  static const bool autoUploadAfterPdfGeneration = true;
 }

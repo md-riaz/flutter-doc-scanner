@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:share_plus/share_plus.dart';
 import '../providers/documents_provider.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../pdf/domain/entities/pdf_document.dart';
 import '../../../scanner/presentation/providers/scan_session_provider.dart';
 
@@ -46,6 +47,9 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
   @override
   Widget build(BuildContext context) {
     final documentsState = ref.watch(documentsProvider);
+    final authState = ref.watch(authStateProvider);
+    final isViewer = authState.user?.isViewer ?? false;
+    final visibleDocuments = documentsState.filteredDocuments;
 
     return Scaffold(
       appBar: AppBar(
@@ -90,13 +94,16 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                     ? IconButton(
                         icon: const Icon(Icons.clear),
                         onPressed: () {
-                          _searchController.clear();
-                          ref.read(documentsProvider.notifier).loadDocuments();
+                          setState(() {
+                            _searchController.clear();
+                          });
+                          ref.read(documentsProvider.notifier).searchDocuments('');
                         },
                       )
                     : null,
               ),
               onChanged: (value) {
+                setState(() {});
                 ref.read(documentsProvider.notifier).searchDocuments(value);
               },
             ),
@@ -106,8 +113,8 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
           Expanded(
             child: documentsState.isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : documentsState.error != null
-                    ? Center(
+                    : documentsState.error != null
+                        ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -128,21 +135,25 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                           ],
                         ),
                       )
-                    : documentsState.documents.isEmpty
+                    : visibleDocuments.isEmpty
                         ? _buildEmptyState()
-                        : _buildDocumentsList(documentsState.documents),
+                        : _buildDocumentsList(
+                            visibleDocuments,
+                            isViewer: isViewer,
+                          ),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          // Start a new scan
-          ref.read(scanSessionProvider.notifier).startSession();
-          context.push('/scanner/camera');
-        },
-        icon: const Icon(Icons.camera_alt),
-        label: const Text('Scan'),
-      ),
+      floatingActionButton: isViewer
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () {
+                ref.read(scanSessionProvider.notifier).startSession();
+                context.push('/scanner/camera');
+              },
+              icon: const Icon(Icons.camera_alt),
+              label: const Text('Scan'),
+            ),
     );
   }
 
@@ -171,7 +182,10 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
     );
   }
 
-  Widget _buildDocumentsList(List<PdfDocument> documents) {
+  Widget _buildDocumentsList(
+    List<PdfDocument> documents, {
+    required bool isViewer,
+  }) {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       itemCount: documents.length,
@@ -181,11 +195,139 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
           document: doc,
           onTap: () => _openDocument(doc),
           onShare: () => _shareDocument(doc),
+          onEdit: isViewer ? null : () => _showEditDialog(doc),
           onDelete: () => _confirmDelete(doc),
+          isViewer: isViewer,
         );
       },
     );
   }
+
+  Future<void> _showEditDialog(PdfDocument document) async {
+    final formKey = GlobalKey<FormState>();
+    final titleController = TextEditingController(text: document.title);
+    final tagsController = TextEditingController(
+      text: document.tags.join(', '),
+    );
+    String? selectedCategory = document.category;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogBuilderContext, setState) => AlertDialog(
+          title: const Text('Edit Document'),
+          content: Form(
+            key: formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: titleController,
+                    decoration: const InputDecoration(
+                      labelText: 'Title',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Please enter a title';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String?>(
+                    initialValue: selectedCategory,
+                    decoration: const InputDecoration(
+                      labelText: 'Category',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      const DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text('No Category'),
+                      ),
+                      ..._categories.map(
+                        (category) => DropdownMenuItem<String?>(
+                          value: category,
+                          child: Text(category),
+                        ),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        selectedCategory = value;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: tagsController,
+                    decoration: const InputDecoration(
+                      labelText: 'Tags',
+                      hintText: 'Comma-separated tags',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (!formKey.currentState!.validate()) {
+                  return;
+                }
+
+                final tags = tagsController.text
+                    .split(',')
+                    .map((tag) => tag.trim())
+                    .where((tag) => tag.isNotEmpty)
+                    .toList();
+
+                try {
+                  await ref.read(documentsProvider.notifier).updateDocumentMetadata(
+                        id: document.id,
+                        title: titleController.text.trim(),
+                        category: selectedCategory,
+                        tags: tags,
+                      );
+
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext);
+                  }
+                } catch (_) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Failed to update document metadata'),
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static const List<String> _categories = [
+    'Invoice',
+    'Receipt',
+    'Contract',
+    'Report',
+    'Letter',
+    'ID Document',
+    'Other',
+  ];
 
   Future<void> _openDocument(PdfDocument document) async {
     try {
@@ -243,13 +385,17 @@ class _DocumentCard extends StatelessWidget {
   final PdfDocument document;
   final VoidCallback onTap;
   final VoidCallback onShare;
+  final VoidCallback? onEdit;
   final VoidCallback onDelete;
+  final bool isViewer;
 
   const _DocumentCard({
     required this.document,
     required this.onTap,
     required this.onShare,
+    required this.onEdit,
     required this.onDelete,
+    required this.isViewer,
   });
 
   @override
@@ -267,7 +413,7 @@ class _DocumentCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
+                  color: Colors.red.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(
@@ -332,16 +478,28 @@ class _DocumentCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: Row(
-                      children: [
-                        Icon(Icons.delete, color: Colors.red),
-                        SizedBox(width: 8),
-                        Text('Delete', style: TextStyle(color: Colors.red)),
-                      ],
+                  if (!isViewer)
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit),
+                          SizedBox(width: 8),
+                          Text('Edit'),
+                        ],
+                      ),
                     ),
-                  ),
+                  if (!isViewer)
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete, color: Colors.red),
+                          SizedBox(width: 8),
+                          Text('Delete', style: TextStyle(color: Colors.red)),
+                        ],
+                      ),
+                    ),
                 ],
                 onSelected: (value) {
                   switch (value) {
@@ -350,6 +508,9 @@ class _DocumentCard extends StatelessWidget {
                       break;
                     case 'share':
                       onShare();
+                      break;
+                    case 'edit':
+                      onEdit?.call();
                       break;
                     case 'delete':
                       onDelete();

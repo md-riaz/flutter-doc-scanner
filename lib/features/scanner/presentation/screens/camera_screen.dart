@@ -33,7 +33,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // final scanSession = ref.read(scanSessionProvider.notifier); // Unused
     final controller = ref.read(cameraServiceProvider).controller;
 
     if (controller == null || !controller.value.isInitialized) {
@@ -41,13 +40,17 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     }
 
     if (state == AppLifecycleState.inactive) {
-      controller.dispose();
+      ref.read(cameraServiceProvider).dispose();
     } else if (state == AppLifecycleState.resumed) {
       _initializeCamera();
     }
   }
 
   Future<void> _initializeCamera() async {
+    final scanSession = ref.read(scanSessionProvider);
+    if (scanSession.session == null) {
+      ref.read(scanSessionProvider.notifier).startSession();
+    }
     await ref.read(scanSessionProvider.notifier).initializeCamera();
   }
 
@@ -88,6 +91,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         final bytes = await imageFile.readAsBytes();
 
         await scanSession.addImageFromGallery(bytes);
+
+        if (!mounted) return;
 
         // Navigate to preview screen
         context.push('/scanner/preview');
@@ -213,7 +218,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                 begin: Alignment.bottomCenter,
                 end: Alignment.topCenter,
                 colors: [
-                  Colors.black.withOpacity(0.8),
+                  Colors.black.withValues(alpha: 0.8),
                   Colors.transparent,
                 ],
               ),
@@ -282,7 +287,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
           child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.6),
+              color: Colors.black.withValues(alpha: 0.6),
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Text(
@@ -305,7 +310,7 @@ class DocumentEdgePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white.withOpacity(0.5)
+      ..color = Colors.white.withValues(alpha: 0.5)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.0;
 

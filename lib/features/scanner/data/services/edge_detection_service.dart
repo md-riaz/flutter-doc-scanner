@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:opencv_dart/opencv_dart.dart' as cv;
@@ -189,10 +190,6 @@ class EdgeDetectionService {
   double _distance(ui.Offset p1, ui.Offset p2) {
     final dx = p2.dx - p1.dx;
     final dy = p2.dy - p1.dy;
-    return (dx * dx + dy * dy).sqrt();
+    return math.sqrt(dx * dx + dy * dy);
   }
-}
-
-extension on double {
-  double sqrt() => this < 0 ? 0 : this.abs().toDouble();
 }

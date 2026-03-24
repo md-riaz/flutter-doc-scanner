@@ -27,8 +27,8 @@ class UploadService {
   /// Check if network is available
   Future<bool> isNetworkAvailable() async {
     try {
-      final connectivityResult = await _connectivity.checkConnectivity();
-      return connectivityResult != ConnectivityResult.none;
+      final connectivityResults = await _connectivity.checkConnectivity();
+      return !connectivityResults.contains(ConnectivityResult.none);
     } catch (e) {
       // If connectivity check fails, assume network is available
       return true;

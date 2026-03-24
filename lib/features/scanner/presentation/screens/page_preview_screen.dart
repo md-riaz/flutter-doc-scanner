@@ -17,6 +17,9 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
   ImageFilter _selectedFilter = ImageFilter.none;
   Uint8List? _filteredImageData;
   bool _isApplyingFilter = false;
+  final Map<ImageFilter, Uint8List?> _previewCache = {
+    ImageFilter.none: null,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -77,7 +80,7 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
             Container(
               height: 100,
               decoration: BoxDecoration(
-                color: Colors.grey[900]?.withOpacity(0.9),
+                color: Colors.grey[900]?.withValues(alpha: 0.9),
               ),
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
@@ -116,7 +119,7 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
                                   ),
                                   if (isSelected)
                                     Container(
-                                      color: Colors.blue.withOpacity(0.3),
+                                      color: Colors.blue.withValues(alpha: 0.3),
                                     ),
                                 ],
                               ),
@@ -208,59 +211,108 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
   }
 
   Future<void> _processAndContinue() async {
-    final sessionState = ref.read(scanSessionProvider);
-    final lastPage = sessionState.session!.pages.last;
+    setState(() {
+      _isApplyingFilter = true;
+    });
 
-    // Apply filter if selected
-    if (_selectedFilter != ImageFilter.none && _filteredImageData != null) {
-      await ref.read(scanSessionProvider.notifier).updatePageImage(
-            lastPage.id,
-            _filteredImageData!,
-          );
-    }
+    try {
+      final pageId = ref.read(scanSessionProvider).session!.pages.last.id;
 
-    // Process the page if needed
-    if (_autoEnhance && !lastPage.isProcessed) {
-      await ref.read(scanSessionProvider.notifier).processPage(
-            lastPage.id,
-            autoEnhance: _autoEnhance,
-          );
-    }
+      await _applySelectedFilterToPage(pageId);
 
-    if (mounted) {
-      // Go back to camera to add more pages
-      context.pop();
+      final updatedPage = ref.read(scanSessionProvider).session!.pages
+          .firstWhere((page) => page.id == pageId);
+      if (_autoEnhance && !updatedPage.isProcessed) {
+        await ref.read(scanSessionProvider.notifier).processPage(
+              pageId,
+              autoEnhance: _autoEnhance,
+            );
+      }
+
+      if (mounted) {
+        context.pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save page: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isApplyingFilter = false;
+        });
+      }
     }
   }
 
   Future<void> _processAndFinish() async {
-    final sessionState = ref.read(scanSessionProvider);
-    final lastPage = sessionState.session!.pages.last;
+    setState(() {
+      _isApplyingFilter = true;
+    });
 
-    // Apply filter if selected
-    if (_selectedFilter != ImageFilter.none && _filteredImageData != null) {
-      await ref.read(scanSessionProvider.notifier).updatePageImage(
-            lastPage.id,
-            _filteredImageData!,
-          );
+    try {
+      final pageId = ref.read(scanSessionProvider).session!.pages.last.id;
+
+      await _applySelectedFilterToPage(pageId);
+
+      final updatedPage = ref.read(scanSessionProvider).session!.pages
+          .firstWhere((page) => page.id == pageId);
+      if (_autoEnhance && !updatedPage.isProcessed) {
+        await ref.read(scanSessionProvider.notifier).processPage(
+              pageId,
+              autoEnhance: _autoEnhance,
+            );
+      }
+
+      if (mounted) {
+        context.go('/scanner/review');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to finish page: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isApplyingFilter = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _applySelectedFilterToPage(String pageId) async {
+    if (_selectedFilter == ImageFilter.none) {
+      return;
     }
 
-    // Process the page if needed
-    if (_autoEnhance && !lastPage.isProcessed) {
-      await ref.read(scanSessionProvider.notifier).processPage(
-            lastPage.id,
-            autoEnhance: _autoEnhance,
-          );
-    }
+    final currentPage = ref.read(scanSessionProvider).session!.pages
+        .firstWhere((page) => page.id == pageId);
+    final filterService = ref.read(imageFiltersServiceProvider);
+    final finalFiltered = await filterService.applyFilter(
+      currentPage.imageData,
+      _selectedFilter,
+    );
 
-    if (mounted) {
-      // Navigate to review screen
-      context.go('/scanner/review');
-    }
+    await ref.read(scanSessionProvider.notifier).updatePageImage(
+          pageId,
+          finalFiltered,
+        );
   }
 
   Future<void> _applyFilter(ImageFilter filter) async {
     if (_isApplyingFilter) return;
+
+    if (_previewCache.containsKey(filter)) {
+      setState(() {
+        _selectedFilter = filter;
+        _filteredImageData = _previewCache[filter];
+      });
+      return;
+    }
 
     setState(() {
       _selectedFilter = filter;
@@ -280,13 +332,14 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
       }
 
       final filterService = ref.read(imageFiltersServiceProvider);
-      final filtered = await filterService.applyFilter(
+      final filtered = await filterService.applyPreviewFilter(
         lastPage.imageData,
         filter,
       );
 
       if (mounted) {
         setState(() {
+          _previewCache[filter] = filtered;
           _filteredImageData = filtered;
           _isApplyingFilter = false;
         });

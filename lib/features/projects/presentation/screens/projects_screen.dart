@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../domain/entities/project.dart';
 import '../providers/projects_provider.dart';
 
@@ -10,6 +11,7 @@ class ProjectsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final projectsState = ref.watch(projectsProvider);
+    final canManageProjects = ref.watch(authStateProvider).user?.isAdmin ?? false;
 
     return Scaffold(
       appBar: AppBar(
@@ -25,13 +27,15 @@ class ProjectsScreen extends ConsumerWidget {
         ],
       ),
       body: _buildBody(context, ref, projectsState),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          _showCreateProjectDialog(context, ref);
-        },
-        icon: const Icon(Icons.add),
-        label: const Text('New Project'),
-      ),
+      floatingActionButton: canManageProjects
+          ? FloatingActionButton.extended(
+              onPressed: () {
+                _showCreateProjectDialog(context, ref);
+              },
+              icon: const Icon(Icons.add),
+              label: const Text('New Project'),
+            )
+          : null,
     );
   }
 
@@ -40,6 +44,8 @@ class ProjectsScreen extends ConsumerWidget {
     WidgetRef ref,
     ProjectsState state,
   ) {
+    final canManageProjects = ref.watch(authStateProvider).user?.isAdmin ?? false;
+
     if (state.isLoading && state.projects.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -97,14 +103,16 @@ class ProjectsScreen extends ConsumerWidget {
               'Create a project to organize your documents',
               style: TextStyle(color: Colors.grey),
             ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: () {
-                _showCreateProjectDialog(context, ref);
-              },
-              icon: const Icon(Icons.add),
-              label: const Text('Create Project'),
-            ),
+            if (canManageProjects) ...[
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () {
+                  _showCreateProjectDialog(context, ref);
+                },
+                icon: const Icon(Icons.add),
+                label: const Text('Create Project'),
+              ),
+            ],
           ],
         ),
       );
@@ -194,6 +202,7 @@ class ProjectsScreen extends ConsumerWidget {
     Project project,
   ) {
     final color = _parseColor(project.color);
+    final canManageProjects = ref.watch(authStateProvider).user?.isAdmin ?? false;
 
     return Card(
       elevation: 2,
@@ -202,9 +211,11 @@ class ProjectsScreen extends ConsumerWidget {
           // Navigate to project documents with filter
           context.push('/documents?projectId=${project.id}&projectName=${Uri.encodeComponent(project.name)}');
         },
-        onLongPress: () {
-          _showProjectOptions(context, ref, project);
-        },
+        onLongPress: canManageProjects
+            ? () {
+                _showProjectOptions(context, ref, project);
+              }
+            : null,
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -226,7 +237,7 @@ class ProjectsScreen extends ConsumerWidget {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: color.withOpacity(0.2),
+                      color: color.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(
@@ -236,14 +247,15 @@ class ProjectsScreen extends ConsumerWidget {
                     ),
                   ),
                   const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.more_vert, size: 20),
-                    onPressed: () {
-                      _showProjectOptions(context, ref, project);
-                    },
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
+                  if (canManageProjects)
+                    IconButton(
+                      icon: const Icon(Icons.more_vert, size: 20),
+                      onPressed: () {
+                        _showProjectOptions(context, ref, project);
+                      },
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
                 ],
               ),
               const SizedBox(height: 8),

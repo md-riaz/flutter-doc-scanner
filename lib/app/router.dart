@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../features/auth/presentation/providers/auth_provider.dart';
 import '../features/auth/presentation/screens/login_screen.dart';
 import '../features/auth/presentation/screens/splash_screen.dart';
 import '../features/scanner/presentation/screens/home_screen.dart';
@@ -14,8 +15,37 @@ import '../features/projects/presentation/screens/projects_screen.dart';
 import '../features/settings/presentation/screens/settings_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
+  final authState = ref.watch(authStateProvider);
+
   return GoRouter(
     initialLocation: '/splash',
+    redirect: (context, state) {
+      final path = state.uri.path;
+      final isAuthRoute = path == '/login' || path == '/splash';
+
+      if (authState.isLoading) {
+        return path == '/splash' ? null : '/splash';
+      }
+
+      if (!authState.isAuthenticated) {
+        return isAuthRoute ? null : '/login';
+      }
+
+      if (isAuthRoute) {
+        return '/';
+      }
+
+      final isViewer = authState.user?.isViewer ?? false;
+      final blockedForViewer = path.startsWith('/scanner') ||
+          path.startsWith('/pdf') ||
+          path == '/upload-queue';
+
+      if (isViewer && blockedForViewer) {
+        return '/';
+      }
+
+      return null;
+    },
     routes: [
       GoRoute(
         path: '/splash',

@@ -4,6 +4,8 @@ import '../../data/repositories/pdf_repository.dart';
 import '../../../scanner/domain/entities/scan_session.dart';
 import '../../../documents/data/repositories/document_repository.dart';
 import '../../../upload_queue/data/repositories/upload_queue_repository.dart';
+import '../../../upload_queue/data/services/upload_service.dart';
+import '../../../../core/constants/app_constants.dart';
 
 // State class for PDF generation
 class PdfGenerationState {
@@ -40,10 +42,12 @@ final pdfGenerationProvider =
   final pdfRepository = ref.watch(pdfRepositoryProvider);
   final documentRepository = ref.watch(documentRepositoryProvider);
   final uploadQueueRepository = ref.watch(uploadQueueRepositoryProvider);
+  final uploadService = ref.watch(uploadServiceProvider);
   return PdfGenerationNotifier(
     pdfRepository,
     documentRepository,
     uploadQueueRepository,
+    uploadService,
   );
 });
 
@@ -51,11 +55,13 @@ class PdfGenerationNotifier extends StateNotifier<PdfGenerationState> {
   final PdfRepository _pdfRepository;
   final DocumentRepository _documentRepository;
   final UploadQueueRepository _uploadQueueRepository;
+  final UploadService _uploadService;
 
   PdfGenerationNotifier(
     this._pdfRepository,
     this._documentRepository,
     this._uploadQueueRepository,
+    this._uploadService,
   ) : super(const PdfGenerationState());
 
   /// Generate a PDF from a scan session
@@ -87,6 +93,10 @@ class PdfGenerationNotifier extends StateNotifier<PdfGenerationState> {
 
       // Add to upload queue
       await _uploadQueueRepository.addToQueue(document.id);
+
+      if (AppConstants.autoUploadAfterPdfGeneration) {
+        await _attemptAutoUpload(document);
+      }
 
       state = state.copyWith(
         document: document,
@@ -138,5 +148,35 @@ class PdfGenerationNotifier extends StateNotifier<PdfGenerationState> {
   /// Reset state
   void reset() {
     state = const PdfGenerationState();
+  }
+
+  Future<void> _attemptAutoUpload(PdfDocument document) async {
+    try {
+      await _uploadQueueRepository.updateStatus(
+        id: document.id,
+        status: AppConstants.uploadStatusUploading,
+      );
+
+      await _uploadService.uploadDocument(
+        documentPath: document.filePath,
+        title: document.title,
+        category: document.category,
+        tags: document.tags,
+        projectId: document.projectId,
+      );
+
+      await _uploadQueueRepository.updateStatus(
+        id: document.id,
+        status: AppConstants.uploadStatusUploaded,
+      );
+      await _documentRepository.markAsUploaded(document.id);
+    } catch (e) {
+      await _uploadQueueRepository.updateStatus(
+        id: document.id,
+        status: AppConstants.uploadStatusFailed,
+        errorMessage: e.toString(),
+      );
+      await _uploadQueueRepository.incrementRetryCount(document.id);
+    }
   }
 }

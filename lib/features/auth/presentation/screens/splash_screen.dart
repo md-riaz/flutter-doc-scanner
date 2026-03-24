@@ -11,28 +11,30 @@ class SplashScreen extends ConsumerStatefulWidget {
 }
 
 class _SplashScreenState extends ConsumerState<SplashScreen> {
+  bool _hasNavigated = false;
+
   @override
   void initState() {
     super.initState();
-    _checkAuth();
   }
 
-  Future<void> _checkAuth() async {
-    await Future.delayed(const Duration(seconds: 2));
-
-    if (!mounted) return;
-
-    final authState = ref.read(authStateProvider);
-
-    if (authState.isAuthenticated) {
-      context.go('/');
-    } else {
-      context.go('/login');
+  void _navigateIfReady(AuthState authState) {
+    if (_hasNavigated || authState.isLoading || !mounted) {
+      return;
     }
+
+    _hasNavigated = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.go(authState.isAuthenticated ? '/' : '/login');
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authStateProvider);
+    _navigateIfReady(authState);
+
     return Scaffold(
       body: Center(
         child: Column(
@@ -51,7 +53,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                   ),
             ),
             const SizedBox(height: 48),
-            const CircularProgressIndicator(),
+            authState.isLoading
+                ? const CircularProgressIndicator()
+                : const SizedBox.shrink(),
           ],
         ),
       ),

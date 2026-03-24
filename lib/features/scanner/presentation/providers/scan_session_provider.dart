@@ -243,6 +243,7 @@ class ScanSessionNotifier extends StateNotifier<ScanSessionState> {
   }
 
   /// Dispose camera resources
+  @override
   void dispose() {
     _cameraService.dispose();
     super.dispose();

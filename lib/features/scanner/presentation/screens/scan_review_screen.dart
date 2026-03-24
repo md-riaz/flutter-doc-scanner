@@ -15,7 +15,7 @@ class ScanReviewScreen extends ConsumerWidget {
     if (session == null || session.pages.isEmpty) {
       // Redirect back if no pages
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        context.go('/home');
+        context.go('/');
       });
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),

@@ -110,7 +110,7 @@ class _PdfGenerationScreenState extends ConsumerState<PdfGenerationScreen> {
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.category),
               ),
-              value: _selectedCategory,
+              initialValue: _selectedCategory,
               items: _getCategories()
                   .map((category) => DropdownMenuItem(
                         value: category,
@@ -135,7 +135,7 @@ class _PdfGenerationScreenState extends ConsumerState<PdfGenerationScreen> {
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.folder_special),
                   ),
-                  value: _selectedProjectId,
+                  initialValue: _selectedProjectId,
                   items: [
                     const DropdownMenuItem(
                       value: null,

@@ -11,6 +11,7 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authStateProvider);
     final user = authState.user;
+    final isViewer = user?.isViewer ?? false;
 
     return Scaffold(
       appBar: AppBar(
@@ -65,17 +66,17 @@ class HomeScreen extends ConsumerWidget {
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
                 children: [
-                  _buildMenuCard(
-                    context,
-                    ref: ref,
-                    icon: Icons.camera_alt,
-                    title: 'Scan Document',
-                    onTap: () {
-                      // Start a new scan session
-                      ref.read(scanSessionProvider.notifier).startSession();
-                      context.push('/scanner/camera');
-                    },
-                  ),
+                  if (!isViewer)
+                    _buildMenuCard(
+                      context,
+                      ref: ref,
+                      icon: Icons.camera_alt,
+                      title: 'Scan Document',
+                      onTap: () {
+                        ref.read(scanSessionProvider.notifier).startSession();
+                        context.push('/scanner/camera');
+                      },
+                    ),
                   _buildMenuCard(
                     context,
                     ref: ref,
@@ -90,13 +91,14 @@ class HomeScreen extends ConsumerWidget {
                     title: 'Projects',
                     onTap: () => context.push('/projects'),
                   ),
-                  _buildMenuCard(
-                    context,
-                    ref: ref,
-                    icon: Icons.upload_file,
-                    title: 'Upload Queue',
-                    onTap: () => context.push('/upload-queue'),
-                  ),
+                  if (!isViewer)
+                    _buildMenuCard(
+                      context,
+                      ref: ref,
+                      icon: Icons.upload_file,
+                      title: 'Upload Queue',
+                      onTap: () => context.push('/upload-queue'),
+                    ),
                   _buildMenuCard(
                     context,
                     ref: ref,
