@@ -300,7 +300,7 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
 
       final updatedPage = ref.read(scanSessionProvider).session!.pages
           .firstWhere((page) => page.id == pageId);
-      if (_autoEnhance && !updatedPage.isProcessed) {
+      if (!updatedPage.isProcessed || _autoEnhance) {
         await ref.read(scanSessionProvider.notifier).processPage(
               pageId,
               autoEnhance: _autoEnhance,
@@ -337,7 +337,7 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
 
       final updatedPage = ref.read(scanSessionProvider).session!.pages
           .firstWhere((page) => page.id == pageId);
-      if (_autoEnhance && !updatedPage.isProcessed) {
+      if (!updatedPage.isProcessed || _autoEnhance) {
         await ref.read(scanSessionProvider.notifier).processPage(
               pageId,
               autoEnhance: _autoEnhance,
@@ -373,7 +373,7 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
 
       final updatedPage = ref.read(scanSessionProvider).session!.pages
           .firstWhere((page) => page.id == pageId);
-      if (_autoEnhance && !updatedPage.isProcessed) {
+      if (!updatedPage.isProcessed || _autoEnhance) {
         await ref.read(scanSessionProvider.notifier).processPage(
               pageId,
               autoEnhance: _autoEnhance,

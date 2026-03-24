@@ -1,5 +1,5 @@
 import 'dart:typed_data';
-import 'dart:ui' show Offset;
+import 'dart:ui' as ui show Offset, instantiateImageCodec;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/scanned_page.dart';
 import '../../domain/entities/scan_session.dart';
@@ -63,17 +63,24 @@ class ScanRepository {
   /// Process a scanned page (crop, enhance)
   Future<ScannedPage> processPage(
     ScannedPage page, {
-    List<Offset>? corners,
+    List<ui.Offset>? corners,
     bool autoEnhance = true,
   }) async {
     var processedData = page.imageData;
+    List<ui.Offset>? detectedCorners = corners;
 
-    // Crop if corners are provided
-    if (corners != null && corners.length == 4) {
-      processedData = await _imageProcessingService.cropImage(
+    detectedCorners ??= await _detectDocumentCorners(processedData);
+
+    // Apply perspective correction when document bounds are available.
+    if (detectedCorners != null && detectedCorners.length == 4) {
+      final transformed = await _imageProcessingService.applyPerspectiveTransform(
         processedData,
-        corners,
+        detectedCorners,
       );
+
+      if (transformed != null) {
+        processedData = transformed;
+      }
     }
 
     // Auto-enhance
@@ -86,19 +93,19 @@ class ScanRepository {
     return page.copyWith(
       imageData: processedData,
       isProcessed: true,
-      corners: corners != null
+      corners: detectedCorners != null
           ? ScannedPageCorners(
-              topLeft: corners[0],
-              topRight: corners[1],
-              bottomRight: corners[2],
-              bottomLeft: corners[3],
+              topLeft: detectedCorners[0],
+              topRight: detectedCorners[1],
+              bottomRight: detectedCorners[2],
+              bottomLeft: detectedCorners[3],
             )
           : null,
     );
   }
 
   /// Detect document edges in an image
-  Future<List<Offset>?> detectEdges(
+  Future<List<ui.Offset>?> detectEdges(
     Uint8List imageData,
     int width,
     int height,
@@ -139,5 +146,19 @@ class ScanRepository {
       imageData,
       quality: quality,
     );
+  }
+
+  Future<List<ui.Offset>?> _detectDocumentCorners(Uint8List imageData) async {
+    try {
+      final codec = await ui.instantiateImageCodec(imageData);
+      final frame = await codec.getNextFrame();
+      return _imageProcessingService.detectDocumentEdges(
+        imageData,
+        frame.image.width,
+        frame.image.height,
+      );
+    } catch (_) {
+      return null;
+    }
   }
 }

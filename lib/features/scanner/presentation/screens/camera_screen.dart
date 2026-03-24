@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../providers/scan_session_provider.dart';
 import '../../data/services/camera_service.dart';
+import '../../data/services/edge_detection_service.dart';
 import 'package:go_router/go_router.dart';
 
 class CameraScreen extends ConsumerStatefulWidget {
@@ -18,6 +19,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     with WidgetsBindingObserver {
   bool _isFlashOn = false;
   int _tipIndex = 0;
+  bool _isProcessingLiveFrame = false;
+  DateTime? _lastLiveDetectionAt;
+  List<Offset>? _liveDetectedCorners;
 
   static const List<String> _scanTips = [
     'Keep the page flat inside the frame',
@@ -36,6 +40,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    ref.read(cameraServiceProvider).stopImageStream();
     super.dispose();
   }
 
@@ -60,17 +65,22 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       ref.read(scanSessionProvider.notifier).startSession();
     }
     await ref.read(scanSessionProvider.notifier).initializeCamera();
+    await _startLiveDetection();
   }
 
   Future<void> _captureImage() async {
+    await ref.read(cameraServiceProvider).stopImageStream();
     final scanSession = ref.read(scanSessionProvider.notifier);
     await scanSession.capturePage();
 
     if (mounted) {
       final session = ref.read(scanSessionProvider).session;
       if (session != null && session.pages.isNotEmpty) {
-        // Navigate to preview screen
-        context.push('/scanner/preview');
+        if (!context.mounted) return;
+        await context.push('/scanner/preview');
+        if (mounted) {
+          await _startLiveDetection();
+        }
       }
     }
   }
@@ -93,6 +103,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       );
 
       if (image != null && mounted) {
+        await ref.read(cameraServiceProvider).stopImageStream();
         // Add the image to the scan session
         final scanSession = ref.read(scanSessionProvider.notifier);
         final File imageFile = File(image.path);
@@ -100,10 +111,13 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
         await scanSession.addImageFromGallery(bytes);
 
-        if (!mounted) return;
+        if (!context.mounted) return;
 
         // Navigate to preview screen
-        context.push('/scanner/preview');
+        await context.push('/scanner/preview');
+        if (mounted) {
+          await _startLiveDetection();
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -130,8 +144,13 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
           if (sessionState.session != null &&
               sessionState.session!.pages.isNotEmpty)
             TextButton.icon(
-              onPressed: () {
-                context.push('/scanner/review');
+              onPressed: () async {
+                await ref.read(cameraServiceProvider).stopImageStream();
+                if (!context.mounted) return;
+                await context.push('/scanner/review');
+                if (mounted) {
+                  await _startLiveDetection();
+                }
               },
               icon: const Icon(Icons.photo_library, color: Colors.white),
               label: Text(
@@ -196,22 +215,12 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
   Widget _buildCameraView(CameraController controller) {
     final sessionState = ref.watch(scanSessionProvider);
-    // final size = MediaQuery.of(context).size; // Unused
 
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Camera preview
-        Center(
-          child: AspectRatio(
-            aspectRatio: controller.value.aspectRatio,
-            child: CameraPreview(controller),
-          ),
-        ),
-
-        // Document edge overlay (visual guide)
-        CustomPaint(
-          painter: DocumentEdgePainter(),
+        Positioned.fill(
+          child: _buildFullScreenPreview(controller),
         ),
 
         // Controls overlay
@@ -299,7 +308,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
-              _scanTips[_tipIndex],
+              _liveDetectedCorners == null
+                  ? _scanTips[_tipIndex]
+                  : 'Document detected. Adjust position and capture.',
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Colors.white,
@@ -324,70 +335,233 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       ],
     );
   }
-}
 
-/// Custom painter for document edge guide overlay
-class DocumentEdgePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.5)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0;
+  Widget _buildFullScreenPreview(CameraController controller) {
+    final previewSize = controller.value.previewSize;
+    if (previewSize == null) {
+      return CameraPreview(controller);
+    }
 
-    // Draw corner guides
-    final margin = 40.0;
-    final cornerLength = 30.0;
+    final orientation = MediaQuery.orientationOf(context);
+    final previewWidth = orientation == Orientation.portrait
+        ? previewSize.height
+        : previewSize.width;
+    final previewHeight = orientation == Orientation.portrait
+        ? previewSize.width
+        : previewSize.height;
 
-    // Top-left corner
-    canvas.drawLine(
-      Offset(margin, margin),
-      Offset(margin + cornerLength, margin),
-      paint,
-    );
-    canvas.drawLine(
-      Offset(margin, margin),
-      Offset(margin, margin + cornerLength),
-      paint,
-    );
-
-    // Top-right corner
-    canvas.drawLine(
-      Offset(size.width - margin, margin),
-      Offset(size.width - margin - cornerLength, margin),
-      paint,
-    );
-    canvas.drawLine(
-      Offset(size.width - margin, margin),
-      Offset(size.width - margin, margin + cornerLength),
-      paint,
-    );
-
-    // Bottom-left corner
-    canvas.drawLine(
-      Offset(margin, size.height - margin),
-      Offset(margin + cornerLength, size.height - margin),
-      paint,
-    );
-    canvas.drawLine(
-      Offset(margin, size.height - margin),
-      Offset(margin, size.height - margin - cornerLength),
-      paint,
-    );
-
-    // Bottom-right corner
-    canvas.drawLine(
-      Offset(size.width - margin, size.height - margin),
-      Offset(size.width - margin - cornerLength, size.height - margin),
-      paint,
-    );
-    canvas.drawLine(
-      Offset(size.width - margin, size.height - margin),
-      Offset(size.width - margin, size.height - margin - cornerLength),
-      paint,
+    return ClipRect(
+      child: OverflowBox(
+        maxWidth: double.infinity,
+        maxHeight: double.infinity,
+        child: FittedBox(
+          fit: BoxFit.cover,
+          child: SizedBox(
+            width: previewWidth,
+            height: previewHeight,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                CameraPreview(controller),
+                CustomPaint(
+                  painter: LiveDocumentOverlayPainter(
+                    corners: _liveDetectedCorners,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
+  Future<void> _startLiveDetection() async {
+    final cameraService = ref.read(cameraServiceProvider);
+    if (!cameraService.isInitialized || cameraService.isStreamingImages) {
+      return;
+    }
+
+    try {
+      await cameraService.startImageStream(_handleLiveFrame);
+    } catch (_) {
+      // Fallback to static guidance if image streaming is unavailable.
+    }
+  }
+
+  Future<void> _handleLiveFrame(CameraImage image) async {
+    final now = DateTime.now();
+    if (_isProcessingLiveFrame) {
+      return;
+    }
+    if (_lastLiveDetectionAt != null &&
+        now.difference(_lastLiveDetectionAt!).inMilliseconds < 700) {
+      return;
+    }
+
+    _isProcessingLiveFrame = true;
+    _lastLiveDetectionAt = now;
+
+    try {
+      final frame = ref.read(cameraServiceProvider).buildLiveDetectionFrame(image);
+      if (frame == null) {
+        return;
+      }
+
+      final corners = await ref.read(edgeDetectionServiceProvider).detectDocumentEdges(
+            frame.jpegBytes,
+            frame.width,
+            frame.height,
+          );
+
+      if (!mounted) {
+        return;
+      }
+
+      final usableCorners = corners == null || corners.length != 4
+          ? null
+          : _isFallbackRectangle(corners, frame.width, frame.height)
+              ? null
+              : corners;
+
+      setState(() {
+        _liveDetectedCorners = usableCorners == null
+            ? null
+            : usableCorners
+                .map(
+                  (corner) => _mapDetectionPointToPreview(
+                    corner,
+                    frame.width,
+                    frame.height,
+                  ),
+                )
+                .toList();
+      });
+    } catch (_) {
+      // Ignore intermittent detection errors during preview streaming.
+    } finally {
+      _isProcessingLiveFrame = false;
+    }
+  }
+
+  bool _isFallbackRectangle(
+    List<Offset> corners,
+    int width,
+    int height,
+  ) {
+    const marginRatio = 0.05;
+    const tolerance = 18.0;
+
+    final expected = [
+      Offset(width * marginRatio, height * marginRatio),
+      Offset(width * (1 - marginRatio), height * marginRatio),
+      Offset(width * (1 - marginRatio), height * (1 - marginRatio)),
+      Offset(width * marginRatio, height * (1 - marginRatio)),
+    ];
+
+    for (var i = 0; i < 4; i++) {
+      final dx = (corners[i].dx - expected[i].dx).abs();
+      final dy = (corners[i].dy - expected[i].dy).abs();
+      if (dx > tolerance || dy > tolerance) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  Offset _mapDetectionPointToPreview(
+    Offset point,
+    int frameWidth,
+    int frameHeight,
+  ) {
+    final normalized = Offset(
+      point.dx / frameWidth,
+      point.dy / frameHeight,
+    );
+
+    final camera = ref.read(cameraServiceProvider).controller;
+    if (camera == null) {
+      return normalized;
+    }
+
+    final sensorOrientation = camera.description.sensorOrientation % 360;
+    final rotated = switch (sensorOrientation) {
+      90 => Offset(1 - normalized.dy, normalized.dx),
+      180 => Offset(1 - normalized.dx, 1 - normalized.dy),
+      270 => Offset(normalized.dy, 1 - normalized.dx),
+      _ => normalized,
+    };
+
+    if (camera.description.lensDirection == CameraLensDirection.front) {
+      return Offset(1 - rotated.dx, rotated.dy);
+    }
+
+    return rotated;
+  }
+}
+
+/// Draws the detected document polygon over the live preview.
+class LiveDocumentOverlayPainter extends CustomPainter {
+  final List<Offset>? corners;
+
+  LiveDocumentOverlayPainter({
+    required this.corners,
+  });
+
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  void paint(Canvas canvas, Size size) {
+    final guidePaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.25)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+
+    final margin = 32.0;
+    final defaultRect = Rect.fromLTRB(
+      margin,
+      margin,
+      size.width - margin,
+      size.height - margin,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(defaultRect, const Radius.circular(20)),
+      guidePaint,
+    );
+
+    if (corners?.length != 4) {
+      return;
+    }
+
+    final points = corners!
+        .map((corner) => Offset(corner.dx * size.width, corner.dy * size.height))
+        .toList();
+
+    final polygon = Path()
+      ..moveTo(points[0].dx, points[0].dy)
+      ..lineTo(points[1].dx, points[1].dy)
+      ..lineTo(points[2].dx, points[2].dy)
+      ..lineTo(points[3].dx, points[3].dy)
+      ..close();
+
+    canvas.drawPath(
+      polygon,
+      Paint()
+        ..color = Colors.greenAccent.withValues(alpha: 0.9)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3,
+    );
+
+    for (final point in points) {
+      canvas.drawCircle(
+        point,
+        6,
+        Paint()..color = Colors.greenAccent,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant LiveDocumentOverlayPainter oldDelegate) {
+    return corners != oldDelegate.corners;
+  }
 }
