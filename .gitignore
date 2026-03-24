@@ -26,6 +26,10 @@ target/
 .idea/
 .DS_Store
 Thumbs.db
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+android/local.properties
 .env
 .env.local
 *.env.*

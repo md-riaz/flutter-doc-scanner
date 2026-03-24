@@ -107,7 +107,7 @@ class LiveCaptureEvaluatorService {
     final passesQuality = blockingWarnings.isEmpty;
 
     final movement = previousCorners == null || previousCorners.length != 4
-        ? 1
+        ? 1.0
         : _averageMovement(normalizedCorners, previousCorners);
     final isStable =
         movement <= AppConstants.autoCaptureMaxMovementThreshold;
