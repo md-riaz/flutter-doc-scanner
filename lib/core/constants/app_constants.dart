@@ -38,4 +38,16 @@ class AppConstants {
 
   // Upload Behavior
   static const bool autoUploadAfterPdfGeneration = true;
+
+  // Scanner Auto-Capture
+  static const bool autoCaptureEnabledByDefault = false;
+  static const double autoCaptureMinAreaRatio = 0.2;
+  static const double autoCaptureEdgeMarginRatio = 0.06;
+  static const double autoCaptureMaxMovementThreshold = 0.035;
+  static const double autoCaptureMinAspectRatio = 0.45;
+  static const double autoCaptureMaxAspectRatio = 1.8;
+  static const int autoCaptureRequiredGoodFrames = 3;
+  static const int autoCaptureRequiredReadyFrames = 2;
+  static const Duration autoCaptureCooldown = Duration(milliseconds: 1200);
+  static const Duration liveDetectionSampleInterval = Duration(milliseconds: 700);
 }

@@ -3,9 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'dart:ui' show lerpDouble;
+import 'package:doc_scanner/core/constants/app_constants.dart';
 import 'package:doc_scanner/features/scanner/presentation/providers/scan_session_provider.dart';
 import 'package:doc_scanner/features/scanner/data/services/camera_service.dart';
 import 'package:doc_scanner/features/scanner/data/services/edge_detection_service.dart';
+import 'package:doc_scanner/features/scanner/data/services/image_processing_service.dart';
+import 'package:doc_scanner/features/scanner/data/services/live_capture_evaluator_service.dart';
 import 'package:go_router/go_router.dart';
 
 class CameraScreen extends ConsumerStatefulWidget {
@@ -17,11 +21,21 @@ class CameraScreen extends ConsumerStatefulWidget {
 
 class _CameraScreenState extends ConsumerState<CameraScreen>
     with WidgetsBindingObserver {
+  final LiveCaptureEvaluatorService _captureEvaluator =
+      const LiveCaptureEvaluatorService();
   bool _isFlashOn = false;
   int _tipIndex = 0;
   bool _isProcessingLiveFrame = false;
   DateTime? _lastLiveDetectionAt;
-  List<Offset>? _liveDetectedCorners;
+  DateTime? _cooldownUntil;
+  ScanCaptureMode _captureMode = AppConstants.autoCaptureEnabledByDefault
+      ? ScanCaptureMode.auto
+      : ScanCaptureMode.manual;
+  AutoCaptureState _autoCaptureState = AutoCaptureState.idle;
+  List<Offset>? _lastNormalizedCorners;
+  LiveCaptureAssessment? _liveAssessment;
+  int _goodFrameStreak = 0;
+  int _readyFrameStreak = 0;
 
   static const List<String> _scanTips = [
     'Keep the page flat inside the frame',
@@ -65,23 +79,59 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       ref.read(scanSessionProvider.notifier).startSession();
     }
     await ref.read(scanSessionProvider.notifier).initializeCamera();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _autoCaptureState = _captureMode == ScanCaptureMode.auto
+          ? AutoCaptureState.searching
+          : AutoCaptureState.idle;
+    });
     await _startLiveDetection();
   }
 
-  Future<void> _captureImage() async {
-    final router = GoRouter.of(context);
-    await ref.read(cameraServiceProvider).stopImageStream();
-    final scanSession = ref.read(scanSessionProvider.notifier);
-    await scanSession.capturePage();
+  Future<void> _captureImage({bool initiatedAutomatically = false}) async {
+    if (_autoCaptureState == AutoCaptureState.capturing) {
+      return;
+    }
 
-    if (mounted) {
-      final session = ref.read(scanSessionProvider).session;
-      if (session != null && session.pages.isNotEmpty) {
-        await router.push('/scanner/preview');
-        if (mounted) {
-          await _startLiveDetection();
+    final router = GoRouter.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() {
+      _autoCaptureState = AutoCaptureState.capturing;
+      _goodFrameStreak = 0;
+      _readyFrameStreak = 0;
+    });
+    try {
+      await ref.read(cameraServiceProvider).stopImageStream();
+      final scanSession = ref.read(scanSessionProvider.notifier);
+      await scanSession.capturePage();
+
+      if (mounted) {
+        final session = ref.read(scanSessionProvider).session;
+        if (session != null && session.pages.isNotEmpty) {
+          await router.push('/scanner/preview');
+          if (mounted) {
+            _beginCooldown();
+            await _startLiveDetection();
+          }
+        } else if (mounted && initiatedAutomatically) {
+          _beginCooldown();
         }
       }
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _autoCaptureState = _captureMode == ScanCaptureMode.auto
+            ? AutoCaptureState.searching
+            : AutoCaptureState.idle;
+      });
+      messenger.showSnackBar(
+        SnackBar(content: Text('Capture failed: $e')),
+      );
+      await _startLiveDetection();
     }
   }
 
@@ -116,6 +166,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         // Navigate to preview screen
         await router.push('/scanner/preview');
         if (mounted) {
+          _beginCooldown();
           await _startLiveDetection();
         }
       }
@@ -148,6 +199,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                 await ref.read(cameraServiceProvider).stopImageStream();
                 await router.push('/scanner/review');
                 if (mounted) {
+                  _beginCooldown();
                   await _startLiveDetection();
                 }
               },
@@ -214,6 +266,11 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
   Widget _buildCameraView(CameraController controller) {
     final sessionState = ref.watch(scanSessionProvider);
+    final isAutoMode = _captureMode == ScanCaptureMode.auto;
+    final lockProgress = isAutoMode
+        ? (_readyFrameStreak / AppConstants.autoCaptureRequiredReadyFrames)
+            .clamp(0.0, 1.0)
+        : 0.0;
 
     return Stack(
       fit: StackFit.expand,
@@ -254,30 +311,58 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
                 // Capture button
                 GestureDetector(
-                  onTap: sessionState.isLoading ? null : _captureImage,
-                  child: Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white,
-                      border: Border.all(
-                        color: Colors.white,
-                        width: 4,
-                      ),
-                    ),
-                    child: sessionState.isLoading
-                        ? const Padding(
-                            padding: EdgeInsets.all(16.0),
-                            child: CircularProgressIndicator(
-                              strokeWidth: 3,
-                            ),
-                          )
-                        : const Icon(
-                            Icons.camera,
-                            color: Colors.black,
-                            size: 36,
+                  onTap: sessionState.isLoading ||
+                          _autoCaptureState == AutoCaptureState.capturing
+                      ? null
+                      : () => _captureImage(),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      if (isAutoMode)
+                        SizedBox(
+                          width: 88,
+                          height: 88,
+                          child: CircularProgressIndicator(
+                            value: _autoCaptureState == AutoCaptureState.locking ||
+                                    _autoCaptureState == AutoCaptureState.ready
+                                ? lockProgress
+                                : 0,
+                            strokeWidth: 4,
+                            backgroundColor:
+                                Colors.white.withValues(alpha: 0.15),
+                            color: _statusColor(),
                           ),
+                        ),
+                      Container(
+                        width: 72,
+                        height: 72,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white,
+                          border: Border.all(
+                            color: isAutoMode ? _statusColor() : Colors.white,
+                            width: 4,
+                          ),
+                        ),
+                        child: sessionState.isLoading ||
+                                _autoCaptureState == AutoCaptureState.capturing
+                            ? const Padding(
+                                padding: EdgeInsets.all(16.0),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 3,
+                                ),
+                              )
+                            : Icon(
+                                isAutoMode &&
+                                        _autoCaptureState ==
+                                            AutoCaptureState.ready
+                                    ? Icons.auto_awesome
+                                    : Icons.camera,
+                                color: Colors.black,
+                                size: 36,
+                              ),
+                      ),
+                    ],
                   ),
                 ),
 
@@ -307,15 +392,59 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
-              _liveDetectedCorners == null
-                  ? _scanTips[_tipIndex]
-                  : 'Document detected. Adjust position and capture.',
+              _buildLiveHintText(),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 14,
               ),
             ),
+          ),
+        ),
+        Positioned(
+          top: 20,
+          left: 20,
+          child: SegmentedButton<ScanCaptureMode>(
+            showSelectedIcon: false,
+            style: ButtonStyle(
+              backgroundColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return Colors.white;
+                }
+                return Colors.black.withValues(alpha: 0.55);
+              }),
+              foregroundColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return Colors.black;
+                }
+                return Colors.white;
+              }),
+            ),
+            segments: const [
+              ButtonSegment(
+                value: ScanCaptureMode.manual,
+                label: Text('Manual'),
+                icon: Icon(Icons.pan_tool_alt_outlined),
+              ),
+              ButtonSegment(
+                value: ScanCaptureMode.auto,
+                label: Text('Auto'),
+                icon: Icon(Icons.auto_awesome),
+              ),
+            ],
+            selected: {_captureMode},
+            onSelectionChanged: (selection) {
+              final mode = selection.first;
+              setState(() {
+                _captureMode = mode;
+                _goodFrameStreak = 0;
+                _readyFrameStreak = 0;
+                _cooldownUntil = null;
+                _autoCaptureState = mode == ScanCaptureMode.auto
+                    ? AutoCaptureState.searching
+                    : AutoCaptureState.idle;
+              });
+            },
           ),
         ),
         Positioned(
@@ -327,8 +456,14 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                 _tipIndex = (_tipIndex + 1) % _scanTips.length;
               });
             },
-            icon: const Icon(Icons.tips_and_updates),
-            label: const Text('Tips'),
+            icon: Icon(
+              _captureMode == ScanCaptureMode.auto
+                  ? Icons.lock_person
+                  : Icons.tips_and_updates,
+            ),
+            label: Text(_captureMode == ScanCaptureMode.auto
+                ? _statusLabel()
+                : 'Tips'),
           ),
         ),
       ],
@@ -364,7 +499,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                 CameraPreview(controller),
                 CustomPaint(
                   painter: LiveDocumentOverlayPainter(
-                    corners: _liveDetectedCorners,
+                    corners: _liveAssessment?.corners,
                   ),
                 ),
               ],
@@ -394,7 +529,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       return;
     }
     if (_lastLiveDetectionAt != null &&
-        now.difference(_lastLiveDetectionAt!).inMilliseconds < 700) {
+        now.difference(_lastLiveDetectionAt!) <
+            AppConstants.liveDetectionSampleInterval) {
       return;
     }
 
@@ -412,30 +548,36 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
             frame.width,
             frame.height,
           );
+      final quality = await ref
+          .read(imageProcessingServiceProvider)
+          .analyzeDocumentQuality(frame.jpegBytes);
 
       if (!mounted) {
         return;
       }
 
-      final usableCorners = corners == null || corners.length != 4
+      final normalizedCorners = corners == null || corners.length != 4
           ? null
-          : _isFallbackRectangle(corners, frame.width, frame.height)
-              ? null
-              : corners;
+          : corners
+              .map(
+                (corner) => _mapDetectionPointToPreview(
+                  corner,
+                  frame.width,
+                  frame.height,
+                ),
+              )
+              .toList();
+      final isFallbackRectangle = normalizedCorners == null
+          ? false
+          : _isFallbackRectangle(normalizedCorners);
+      final assessment = _captureEvaluator.evaluate(
+        corners: normalizedCorners,
+        quality: quality,
+        isFallbackRectangle: isFallbackRectangle,
+        previousCorners: _lastNormalizedCorners,
+      );
 
-      setState(() {
-        _liveDetectedCorners = usableCorners == null
-            ? null
-            : usableCorners
-                .map(
-                  (corner) => _mapDetectionPointToPreview(
-                    corner,
-                    frame.width,
-                    frame.height,
-                  ),
-                )
-                .toList();
-      });
+      _updateAutoCaptureState(assessment);
     } catch (_) {
       // Ignore intermittent detection errors during preview streaming.
     } finally {
@@ -443,19 +585,13 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     }
   }
 
-  bool _isFallbackRectangle(
-    List<Offset> corners,
-    int width,
-    int height,
-  ) {
-    const marginRatio = 0.05;
-    const tolerance = 18.0;
-
+  bool _isFallbackRectangle(List<Offset> corners) {
+    const tolerance = 0.02;
     final expected = [
-      Offset(width * marginRatio, height * marginRatio),
-      Offset(width * (1 - marginRatio), height * marginRatio),
-      Offset(width * (1 - marginRatio), height * (1 - marginRatio)),
-      Offset(width * marginRatio, height * (1 - marginRatio)),
+      const Offset(0.05, 0.05),
+      const Offset(0.95, 0.05),
+      const Offset(0.95, 0.95),
+      const Offset(0.05, 0.95),
     ];
 
     for (var i = 0; i < 4; i++) {
@@ -498,6 +634,106 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
     return normalized;
   }
+
+  void _updateAutoCaptureState(LiveCaptureAssessment assessment) {
+    final now = DateTime.now();
+    final inCooldown = _cooldownUntil != null && now.isBefore(_cooldownUntil!);
+
+    if (_captureMode == ScanCaptureMode.manual) {
+      _goodFrameStreak = 0;
+      _readyFrameStreak = 0;
+    } else if (assessment.isGoodFrame) {
+      _goodFrameStreak += 1;
+    } else {
+      _goodFrameStreak = 0;
+    }
+
+    if (_captureMode != ScanCaptureMode.auto) {
+      _readyFrameStreak = 0;
+    } else if (assessment.isReady &&
+        _goodFrameStreak >= AppConstants.autoCaptureRequiredGoodFrames) {
+      _readyFrameStreak += 1;
+    } else {
+      _readyFrameStreak = 0;
+    }
+
+    var nextState = _captureMode == ScanCaptureMode.manual
+        ? AutoCaptureState.idle
+        : AutoCaptureState.searching;
+    if (_captureMode == ScanCaptureMode.auto) {
+      if (_autoCaptureState == AutoCaptureState.capturing) {
+        nextState = AutoCaptureState.capturing;
+      } else if (inCooldown) {
+        nextState = AutoCaptureState.cooldown;
+      } else if (_goodFrameStreak == 0) {
+        nextState = AutoCaptureState.searching;
+      } else if (_readyFrameStreak > 0) {
+        nextState = AutoCaptureState.ready;
+      } else {
+        nextState = AutoCaptureState.locking;
+      }
+    }
+
+    setState(() {
+      _liveAssessment = assessment;
+      _lastNormalizedCorners = assessment.corners;
+      _autoCaptureState = nextState;
+    });
+
+    if (_captureMode == ScanCaptureMode.auto &&
+        !inCooldown &&
+        _autoCaptureState != AutoCaptureState.capturing &&
+        _readyFrameStreak >= AppConstants.autoCaptureRequiredReadyFrames) {
+      _captureImage(initiatedAutomatically: true);
+    }
+  }
+
+  void _beginCooldown() {
+    setState(() {
+      _cooldownUntil = DateTime.now().add(AppConstants.autoCaptureCooldown);
+      _autoCaptureState = _captureMode == ScanCaptureMode.auto
+          ? AutoCaptureState.cooldown
+          : AutoCaptureState.idle;
+      _goodFrameStreak = 0;
+      _readyFrameStreak = 0;
+      _lastNormalizedCorners = null;
+    });
+  }
+
+  String _buildLiveHintText() {
+    if (_captureMode == ScanCaptureMode.auto) {
+      return '${_statusLabel()}: ${_liveAssessment?.guidanceMessage ?? 'Searching for a document'}';
+    }
+    final qualityWarnings = _liveAssessment?.quality.warnings ?? const <String>[];
+    if (qualityWarnings.isNotEmpty) {
+      return qualityWarnings.take(2).join(' | ');
+    }
+    if (_liveAssessment?.corners != null) {
+      return 'Document detected. Adjust position and capture.';
+    }
+    return _scanTips[_tipIndex];
+  }
+
+  Color _statusColor() {
+    return switch (_autoCaptureState) {
+      AutoCaptureState.ready => Colors.greenAccent,
+      AutoCaptureState.locking => Colors.orangeAccent,
+      AutoCaptureState.capturing => Colors.blueAccent,
+      AutoCaptureState.cooldown => Colors.amber,
+      _ => Colors.white,
+    };
+  }
+
+  String _statusLabel() {
+    return switch (_autoCaptureState) {
+      AutoCaptureState.idle => 'Manual',
+      AutoCaptureState.searching => 'Searching',
+      AutoCaptureState.locking => 'Locking',
+      AutoCaptureState.ready => 'Ready',
+      AutoCaptureState.capturing => 'Capturing',
+      AutoCaptureState.cooldown => 'Cooldown',
+    };
+  }
 }
 
 /// Draws the detected document polygon over the live preview.
@@ -510,6 +746,7 @@ class LiveDocumentOverlayPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final accent = lerpDouble(0.4, 0.9, corners == null ? 0 : 1) ?? 0.4;
     final guidePaint = Paint()
       ..color = Colors.white.withValues(alpha: 0.25)
       ..style = PaintingStyle.stroke
@@ -545,7 +782,7 @@ class LiveDocumentOverlayPainter extends CustomPainter {
     canvas.drawPath(
       polygon,
       Paint()
-        ..color = Colors.greenAccent.withValues(alpha: 0.9)
+        ..color = Colors.greenAccent.withValues(alpha: accent)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 3,
     );

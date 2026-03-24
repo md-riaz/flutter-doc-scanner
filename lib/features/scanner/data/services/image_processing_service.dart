@@ -381,7 +381,12 @@ ScanQualityAssessment _analyzeDocumentQualityInBackground(Uint8List imageData) {
     var brightnessSum = 0.0;
     var brightnessSquaredSum = 0.0;
     var edgeEnergy = 0.0;
+    var hotspotPixels = 0;
     var samples = 0;
+    var topForegroundX = 0.0;
+    var topForegroundCount = 0;
+    var bottomForegroundX = 0.0;
+    var bottomForegroundCount = 0;
 
     for (var y = 0; y < image.height - 1; y++) {
       for (var x = 0; x < image.width - 1; x++) {
@@ -404,6 +409,18 @@ ScanQualityAssessment _analyzeDocumentQualityInBackground(Uint8List imageData) {
         brightnessSum += luma;
         brightnessSquaredSum += luma * luma;
         edgeEnergy += (luma - lumaRight).abs() + (luma - lumaBelow).abs();
+        if (luma > 245) {
+          hotspotPixels++;
+        }
+        if (luma < 140) {
+          if (y < image.height * 0.25) {
+            topForegroundX += x;
+            topForegroundCount++;
+          } else if (y > image.height * 0.75) {
+            bottomForegroundX += x;
+            bottomForegroundCount++;
+          }
+        }
         samples++;
       }
     }
@@ -416,6 +433,14 @@ ScanQualityAssessment _analyzeDocumentQualityInBackground(Uint8List imageData) {
     final variance = (brightnessSquaredSum / samples) - (avgBrightness * avgBrightness);
     final contrastSpread = variance <= 0 ? 0.0 : variance.sqrtSafe();
     final sharpness = edgeEnergy / (samples * 2);
+    final glareRatio = hotspotPixels / samples;
+    final topCenter = topForegroundCount == 0
+        ? image.width / 2
+        : topForegroundX / topForegroundCount;
+    final bottomCenter = bottomForegroundCount == 0
+        ? image.width / 2
+        : bottomForegroundX / bottomForegroundCount;
+    final skewOffsetRatio = ((topCenter - bottomCenter).abs() / image.width);
 
     final warnings = <String>[];
     if (avgBrightness < 80) {
@@ -429,12 +454,20 @@ ScanQualityAssessment _analyzeDocumentQualityInBackground(Uint8List imageData) {
     if (sharpness < 12) {
       warnings.add('Blurry');
     }
+    if (glareRatio > 0.08) {
+      warnings.add('Glare');
+    }
+    if (skewOffsetRatio > 0.08) {
+      warnings.add('Skewed');
+    }
 
     final score = (100 -
             (avgBrightness < 80 ? 20 : 0) -
             (avgBrightness > 220 ? 18 : 0) -
             (contrastSpread < 28 ? 18 : 0) -
-            (sharpness < 12 ? 24 : 0))
+            (sharpness < 12 ? 24 : 0) -
+            (glareRatio > 0.08 ? 14 : 0) -
+            (skewOffsetRatio > 0.08 ? 12 : 0))
         .clamp(20, 100)
         .toInt();
 
@@ -443,6 +476,8 @@ ScanQualityAssessment _analyzeDocumentQualityInBackground(Uint8List imageData) {
       averageBrightness: avgBrightness,
       contrastSpread: contrastSpread,
       sharpness: sharpness,
+      glareRatio: glareRatio,
+      skewOffsetRatio: skewOffsetRatio,
       warnings: warnings,
     );
   } catch (_) {
@@ -459,6 +494,8 @@ class ScanQualityAssessment {
   final double averageBrightness;
   final double contrastSpread;
   final double sharpness;
+  final double glareRatio;
+  final double skewOffsetRatio;
   final List<String> warnings;
 
   const ScanQualityAssessment({
@@ -466,6 +503,8 @@ class ScanQualityAssessment {
     this.averageBrightness = 0,
     this.contrastSpread = 0,
     this.sharpness = 0,
+    this.glareRatio = 0,
+    this.skewOffsetRatio = 0,
     this.warnings = const [],
   });
 

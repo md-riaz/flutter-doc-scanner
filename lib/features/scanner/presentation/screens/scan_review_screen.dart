@@ -479,6 +479,10 @@ class _PageListItem extends StatelessWidget {
                       _formatDateTime(page.capturedAt),
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
+                    if (qualityAssessment != null) ...[
+                      const SizedBox(height: 8),
+                      _QualityScoreBadge(score: qualityAssessment!.score),
+                    ],
                     if (qualityAssessment != null && qualityAssessment!.hasWarnings) ...[
                       const SizedBox(height: 8),
                       Wrap(
@@ -545,5 +549,38 @@ class _PageListItem extends StatelessWidget {
 
   String _formatDateTime(DateTime dateTime) {
     return '${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+  }
+}
+
+class _QualityScoreBadge extends StatelessWidget {
+  final int score;
+
+  const _QualityScoreBadge({
+    required this.score,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = switch (score) {
+      >= 85 => Colors.green,
+      >= 65 => Colors.orange,
+      _ => Colors.red,
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.45)),
+      ),
+      child: Text(
+        'Quality $score',
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+      ),
+    );
   }
 }
