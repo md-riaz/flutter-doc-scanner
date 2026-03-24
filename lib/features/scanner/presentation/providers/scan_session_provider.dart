@@ -204,6 +204,34 @@ class ScanSessionNotifier extends StateNotifier<ScanSessionState> {
     state = state.copyWith(session: updatedSession);
   }
 
+  /// Duplicate an existing page and insert it after the original.
+  void duplicatePage(String pageId) {
+    if (state.session == null) return;
+
+    final pageIndex = state.session!.pages.indexWhere((p) => p.id == pageId);
+    if (pageIndex == -1) return;
+
+    final page = state.session!.pages[pageIndex];
+    final duplicatedPage = page.copyWith(
+      id: '${page.id}-copy-${DateTime.now().millisecondsSinceEpoch}',
+      capturedAt: DateTime.now(),
+    );
+
+    final updatedPages = [...state.session!.pages];
+    updatedPages.insert(pageIndex + 1, duplicatedPage);
+
+    final renumberedPages = updatedPages.asMap().entries.map((entry) {
+      return entry.value.copyWith(pageNumber: entry.key + 1);
+    }).toList();
+
+    final updatedSession = state.session!.copyWith(
+      pages: renumberedPages,
+      updatedAt: DateTime.now(),
+    );
+
+    state = state.copyWith(session: updatedSession);
+  }
+
   /// Update page image data (e.g., after applying filter)
   Future<void> updatePageImage(String pageId, Uint8List newImageData) async {
     if (state.session == null) return;
@@ -228,6 +256,46 @@ class ScanSessionNotifier extends StateNotifier<ScanSessionState> {
     );
 
     state = state.copyWith(session: updatedSession);
+  }
+
+  /// Replace a page with a new gallery/import image.
+  Future<void> replacePageImage(String pageId, List<int> imageBytes) async {
+    if (state.session == null) return;
+
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final pageIndex = state.session!.pages.indexWhere((p) => p.id == pageId);
+      if (pageIndex == -1) {
+        throw Exception('Page not found');
+      }
+
+      final existingPage = state.session!.pages[pageIndex];
+      final replacementPage = await _scanRepository.createPageFromBytes(
+        imageBytes,
+        existingPage.pageNumber,
+      );
+
+      final updatedPages = [...state.session!.pages];
+      updatedPages[pageIndex] = replacementPage.copyWith(
+        id: existingPage.id,
+        pageNumber: existingPage.pageNumber,
+      );
+
+      final updatedSession = state.session!.copyWith(
+        pages: updatedPages,
+        updatedAt: DateTime.now(),
+      );
+
+      state = state.copyWith(
+        session: updatedSession,
+        isLoading: false,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: 'Failed to replace page: ${e.toString()}',
+      );
+    }
   }
 
   /// Rotate a page image

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import '../providers/scan_session_provider.dart';
 import '../../domain/entities/scanned_page.dart';
 
@@ -63,6 +64,12 @@ class ScanReviewScreen extends ConsumerWidget {
             },
             onDelete: () {
               _confirmDelete(context, ref, page);
+            },
+            onDuplicate: () {
+              ref.read(scanSessionProvider.notifier).duplicatePage(page.id);
+            },
+            onReplace: () {
+              _replacePage(context, ref, page);
             },
           );
         },
@@ -141,6 +148,34 @@ class ScanReviewScreen extends ConsumerWidget {
                 ],
               ),
             ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        ref.read(scanSessionProvider.notifier).duplicatePage(page.id);
+                      },
+                      icon: const Icon(Icons.copy),
+                      label: const Text('Duplicate'),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _replacePage(context, ref, page);
+                      },
+                      icon: const Icon(Icons.photo_library_outlined),
+                      label: const Text('Replace'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -169,6 +204,34 @@ class ScanReviewScreen extends ConsumerWidget {
       ),
     );
   }
+
+  Future<void> _replacePage(
+    BuildContext context,
+    WidgetRef ref,
+    ScannedPage page,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final picker = ImagePicker();
+    final image = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 100,
+    );
+
+    if (image == null) {
+      return;
+    }
+
+    final bytes = await image.readAsBytes();
+    await ref.read(scanSessionProvider.notifier).replacePageImage(page.id, bytes);
+
+    if (!context.mounted) {
+      return;
+    }
+
+    messenger.showSnackBar(
+      SnackBar(content: Text('Replaced page ${page.pageNumber}')),
+    );
+  }
 }
 
 class _PageListItem extends StatelessWidget {
@@ -178,6 +241,8 @@ class _PageListItem extends StatelessWidget {
   final VoidCallback onRotateLeft;
   final VoidCallback onRotateRight;
   final VoidCallback onDelete;
+  final VoidCallback onDuplicate;
+  final VoidCallback onReplace;
 
   const _PageListItem({
     required Key key,
@@ -187,6 +252,8 @@ class _PageListItem extends StatelessWidget {
     required this.onRotateLeft,
     required this.onRotateRight,
     required this.onDelete,
+    required this.onDuplicate,
+    required this.onReplace,
   }) : super(key: key);
 
   @override
@@ -254,6 +321,14 @@ class _PageListItem extends StatelessWidget {
                         ActionChip(
                           label: const Text('Rotate R'),
                           onPressed: onRotateRight,
+                        ),
+                        ActionChip(
+                          label: const Text('Duplicate'),
+                          onPressed: onDuplicate,
+                        ),
+                        ActionChip(
+                          label: const Text('Replace'),
+                          onPressed: onReplace,
                         ),
                       ],
                     ),
