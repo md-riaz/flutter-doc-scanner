@@ -64,7 +64,7 @@ class ScanRepository {
   Future<ScannedPage> processPage(
     ScannedPage page, {
     List<ui.Offset>? corners,
-    bool autoEnhance = true,
+    bool autoEnhance = false,
   }) async {
     var processedData = page.imageData;
     List<ui.Offset>? detectedCorners = corners;
@@ -92,7 +92,9 @@ class ScanRepository {
 
     return page.copyWith(
       imageData: processedData,
+      originalImageData: processedData,
       isProcessed: true,
+      editSettings: page.editSettings.copyWith(autoEnhance: autoEnhance),
       corners: detectedCorners != null
           ? ScannedPageCorners(
               topLeft: detectedCorners[0],

@@ -2,8 +2,10 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/scan_session.dart';
+import '../../domain/entities/scanned_page.dart';
 import '../../data/repositories/scan_repository.dart';
 import '../../data/services/camera_service.dart';
+import '../../data/services/image_processing_service.dart';
 
 // State class for scan session
 class ScanSessionState {
@@ -39,14 +41,24 @@ final scanSessionProvider =
     StateNotifierProvider<ScanSessionNotifier, ScanSessionState>((ref) {
   final scanRepository = ref.watch(scanRepositoryProvider);
   final cameraService = ref.watch(cameraServiceProvider);
-  return ScanSessionNotifier(scanRepository, cameraService);
+  final imageProcessingService = ref.watch(imageProcessingServiceProvider);
+  return ScanSessionNotifier(
+    scanRepository,
+    cameraService,
+    imageProcessingService,
+  );
 });
 
 class ScanSessionNotifier extends StateNotifier<ScanSessionState> {
   final ScanRepository _scanRepository;
   final CameraService _cameraService;
+  final ImageProcessingService _imageProcessingService;
 
-  ScanSessionNotifier(this._scanRepository, this._cameraService)
+  ScanSessionNotifier(
+    this._scanRepository,
+    this._cameraService,
+    this._imageProcessingService,
+  )
       : super(const ScanSessionState());
 
   /// Initialize camera
@@ -200,7 +212,12 @@ class ScanSessionNotifier extends StateNotifier<ScanSessionState> {
     if (pageIndex == -1) return;
 
     final page = state.session!.pages[pageIndex];
-    final updatedPage = page.copyWith(imageData: newImageData);
+    final updatedPage = page.copyWith(
+      imageData: newImageData,
+      originalImageData: newImageData,
+      editSettings: const ScannedPageEditSettings(),
+      isProcessed: true,
+    );
 
     final updatedPages = [...state.session!.pages];
     updatedPages[pageIndex] = updatedPage;
@@ -225,9 +242,14 @@ class ScanSessionNotifier extends StateNotifier<ScanSessionState> {
       }
 
       final page = state.session!.pages[pageIndex];
-      final rotatedImage = await _scanRepository.rotateImage(page.imageData, angle);
+      final rotatedImage = await _scanRepository.rotateImage(
+        page.originalImageData,
+        angle,
+      );
       final updatedPage = page.copyWith(
         imageData: rotatedImage,
+        originalImageData: rotatedImage,
+        editSettings: const ScannedPageEditSettings(),
         isProcessed: true,
       );
 
@@ -247,6 +269,51 @@ class ScanSessionNotifier extends StateNotifier<ScanSessionState> {
       state = state.copyWith(
         isLoading: false,
         error: 'Failed to rotate page: ${e.toString()}',
+      );
+    }
+  }
+
+  Future<void> applyPageEdits(
+    String pageId,
+    ScannedPageEditSettings settings,
+  ) async {
+    if (state.session == null) return;
+
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final pageIndex = state.session!.pages.indexWhere((p) => p.id == pageId);
+      if (pageIndex == -1) {
+        throw Exception('Page not found');
+      }
+
+      final page = state.session!.pages[pageIndex];
+      final editedImage = await _imageProcessingService.applyDocumentEdits(
+        page.originalImageData,
+        settings: settings,
+      );
+
+      final updatedPage = page.copyWith(
+        imageData: editedImage,
+        editSettings: settings,
+        isProcessed: true,
+      );
+
+      final updatedPages = [...state.session!.pages];
+      updatedPages[pageIndex] = updatedPage;
+
+      final updatedSession = state.session!.copyWith(
+        pages: updatedPages,
+        updatedAt: DateTime.now(),
+      );
+
+      state = state.copyWith(
+        session: updatedSession,
+        isLoading: false,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: 'Failed to apply page edits: ${e.toString()}',
       );
     }
   }

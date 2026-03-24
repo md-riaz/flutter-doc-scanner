@@ -69,6 +69,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   }
 
   Future<void> _captureImage() async {
+    final router = GoRouter.of(context);
     await ref.read(cameraServiceProvider).stopImageStream();
     final scanSession = ref.read(scanSessionProvider.notifier);
     await scanSession.capturePage();
@@ -76,8 +77,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     if (mounted) {
       final session = ref.read(scanSessionProvider).session;
       if (session != null && session.pages.isNotEmpty) {
-        if (!context.mounted) return;
-        await context.push('/scanner/preview');
+        await router.push('/scanner/preview');
         if (mounted) {
           await _startLiveDetection();
         }
@@ -95,6 +95,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   }
 
   Future<void> _importFromGallery() async {
+    final router = GoRouter.of(context);
+    final messenger = ScaffoldMessenger.of(context);
     try {
       final ImagePicker picker = ImagePicker();
       final XFile? image = await picker.pickImage(
@@ -111,17 +113,15 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
         await scanSession.addImageFromGallery(bytes);
 
-        if (!context.mounted) return;
-
         // Navigate to preview screen
-        await context.push('/scanner/preview');
+        await router.push('/scanner/preview');
         if (mounted) {
           await _startLiveDetection();
         }
       }
     } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      if (!mounted) return;
+      messenger.showSnackBar(
         SnackBar(content: Text('Failed to import image: $e')),
       );
     }
@@ -144,9 +144,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
               sessionState.session!.pages.isNotEmpty)
             TextButton.icon(
               onPressed: () async {
+                final router = GoRouter.of(context);
                 await ref.read(cameraServiceProvider).stopImageStream();
-                if (!context.mounted) return;
-                await context.push('/scanner/review');
+                await router.push('/scanner/review');
                 if (mounted) {
                   await _startLiveDetection();
                 }
@@ -479,25 +479,24 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       point.dy / frameHeight,
     );
 
-    final camera = ref.read(cameraServiceProvider).controller;
-    final description = camera?.description;
-    if (description == null) {
-      return normalized;
+    final description = ref.read(cameraServiceProvider).controller?.description;
+    if (description case final cameraDescription?) {
+      final sensorOrientation = cameraDescription.sensorOrientation % 360;
+      final rotated = switch (sensorOrientation) {
+        90 => Offset(1 - normalized.dy, normalized.dx),
+        180 => Offset(1 - normalized.dx, 1 - normalized.dy),
+        270 => Offset(normalized.dy, 1 - normalized.dx),
+        _ => normalized,
+      };
+
+      if (cameraDescription.lensDirection == CameraLensDirection.front) {
+        return Offset(1 - rotated.dx, rotated.dy);
+      }
+
+      return rotated;
     }
 
-    final sensorOrientation = description.sensorOrientation % 360;
-    final rotated = switch (sensorOrientation) {
-      90 => Offset(1 - normalized.dy, normalized.dx),
-      180 => Offset(1 - normalized.dx, 1 - normalized.dy),
-      270 => Offset(normalized.dy, 1 - normalized.dx),
-      _ => normalized,
-    };
-
-    if (description.lensDirection == CameraLensDirection.front) {
-      return Offset(1 - rotated.dx, rotated.dy);
-    }
-
-    return rotated;
+    return normalized;
   }
 }
 

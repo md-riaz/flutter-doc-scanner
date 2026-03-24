@@ -1,7 +1,8 @@
-import 'dart:typed_data';
 import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image/image.dart' as img;
+import '../../domain/entities/scanned_page.dart';
 import 'edge_detection_service.dart';
 import 'image_filters_service.dart';
 
@@ -199,4 +200,160 @@ class ImageProcessingService {
   String getFilterName(ImageFilter filter) {
     return imageFiltersService.getFilterName(filter);
   }
+
+  Future<Uint8List> applyDocumentEdits(
+    Uint8List imageData, {
+    required ScannedPageEditSettings settings,
+    int? maxDimension,
+  }) async {
+    var edited = await compute(
+      _applyDocumentEditsInBackground,
+      <String, dynamic>{
+        'imageData': imageData,
+        'brightness': settings.brightness,
+        'contrast': settings.contrast,
+        'saturation': settings.saturation,
+        'cleanup': settings.cleanup,
+        'sharpness': settings.sharpness,
+        'autoEnhance': settings.autoEnhance,
+        'maxDimension': maxDimension,
+      },
+    );
+
+    final filter = ImageFilter.values[settings.filterIndex];
+    if (filter != ImageFilter.none) {
+      edited = await imageFiltersService.applyFilter(
+        edited,
+        filter,
+        maxDimension: maxDimension,
+      );
+    }
+
+    return edited;
+  }
+
+  Future<Uint8List> applyPreviewDocumentEdits(
+    Uint8List imageData, {
+    required ScannedPageEditSettings settings,
+  }) {
+    return applyDocumentEdits(
+      imageData,
+      settings: settings,
+      maxDimension: 1400,
+    );
+  }
+}
+
+Uint8List _applyDocumentEditsInBackground(Map<String, dynamic> payload) {
+  final imageData = payload['imageData'] as Uint8List;
+  final brightness = payload['brightness'] as double;
+  final contrast = payload['contrast'] as double;
+  final saturation = payload['saturation'] as double;
+  final cleanup = payload['cleanup'] as double;
+  final sharpness = payload['sharpness'] as double;
+  final autoEnhance = payload['autoEnhance'] as bool;
+  final maxDimension = payload['maxDimension'] as int?;
+
+  try {
+    var image = img.decodeImage(imageData);
+    if (image == null) {
+      return imageData;
+    }
+
+    if (maxDimension != null) {
+      final longestSide =
+          image.width > image.height ? image.width : image.height;
+      if (longestSide > maxDimension) {
+        image = image.width >= image.height
+            ? img.copyResize(image, width: maxDimension)
+            : img.copyResize(image, height: maxDimension);
+      }
+    }
+
+    if (autoEnhance) {
+      image = img.adjustColor(
+        image,
+        brightness: 0.04,
+        contrast: 1.12,
+        saturation: 1.02,
+      );
+      image = img.convolution(
+        image,
+        filter: [0, -1, 0, -1, 5, -1, 0, -1, 0],
+      );
+    }
+
+    image = img.adjustColor(
+      image,
+      brightness: brightness,
+      contrast: contrast,
+      saturation: saturation,
+    );
+
+    if (cleanup > 0) {
+      image = _applyDocumentCleanup(image, cleanup);
+    }
+
+    if (sharpness > 0) {
+      image = _applySharpness(image, sharpness);
+    }
+
+    return Uint8List.fromList(img.encodeJpg(image, quality: 90));
+  } catch (_) {
+    return imageData;
+  }
+}
+
+img.Image _applyDocumentCleanup(img.Image image, double cleanup) {
+  final cleanupRatio = cleanup.clamp(0.0, 1.0);
+  final whiteLift = 18 + (cleanupRatio * 44);
+  final shadowLift = cleanupRatio * 22;
+
+  for (var y = 0; y < image.height; y++) {
+    for (var x = 0; x < image.width; x++) {
+      final pixel = image.getPixel(x, y);
+      final r = pixel.r.toDouble();
+      final g = pixel.g.toDouble();
+      final b = pixel.b.toDouble();
+      final luminance = (0.299 * r) + (0.587 * g) + (0.114 * b);
+
+      var nextR = r;
+      var nextG = g;
+      var nextB = b;
+
+      if (luminance > 150) {
+        final whitenFactor = ((luminance - 150) / 105.0) * cleanupRatio;
+        nextR = r + ((255 - r) * whitenFactor) + whiteLift * 0.15;
+        nextG = g + ((255 - g) * whitenFactor) + whiteLift * 0.15;
+        nextB = b + ((255 - b) * whitenFactor) + whiteLift * 0.15;
+      } else {
+        nextR = r + shadowLift;
+        nextG = g + shadowLift;
+        nextB = b + shadowLift;
+      }
+
+      image.setPixelRgba(
+        x,
+        y,
+        nextR.clamp(0, 255).round(),
+        nextG.clamp(0, 255).round(),
+        nextB.clamp(0, 255).round(),
+        pixel.a.toInt(),
+      );
+    }
+  }
+
+  return image;
+}
+
+img.Image _applySharpness(img.Image image, double sharpness) {
+  final sharpened = img.convolution(
+    image,
+    filter: [0, -1, 0, -1, 5, -1, 0, -1, 0],
+  );
+  final amount = sharpness.clamp(0.0, 1.0);
+  return img.adjustColor(
+    sharpened,
+    contrast: 1.0 + (amount * 0.08),
+  );
 }

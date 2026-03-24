@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/scan_session_provider.dart';
 import '../../domain/entities/scan_session.dart';
 import '../../domain/entities/scanned_page.dart';
+import '../../data/services/image_processing_service.dart';
 import '../../data/services/image_filters_service.dart';
 
 class PagePreviewScreen extends ConsumerStatefulWidget {
@@ -21,22 +22,24 @@ class PagePreviewScreen extends ConsumerStatefulWidget {
 
 class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
   bool _autoEnhance = true;
+  double _brightness = 0.0;
+  double _contrast = 1.0;
+  double _saturation = 1.0;
+  double _cleanup = 0.0;
+  double _sharpness = 0.0;
   ImageFilter _selectedFilter = ImageFilter.none;
   Uint8List? _filteredImageData;
   bool _isApplyingFilter = false;
-  final Map<ImageFilter, Uint8List?> _previewCache = {
-    ImageFilter.none: null,
-  };
+  String? _loadedPageId;
+  final Map<String, Uint8List?> _previewCache = {};
 
   bool get _isEditingExistingPage => widget.pageId != null;
 
   void _resetPreviewState() {
     setState(() {
-      _selectedFilter = ImageFilter.none;
+      _loadedPageId = null;
       _filteredImageData = null;
-      _previewCache
-        ..clear()
-        ..[ImageFilter.none] = null;
+      _previewCache.clear();
     });
   }
 
@@ -64,6 +67,8 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
         body: Center(child: CircularProgressIndicator()),
       );
     }
+
+    _loadPageState(page);
 
     final displayImage = _filteredImageData ?? page.imageData;
 
@@ -162,7 +167,7 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: GestureDetector(
-                      onTap: () => _applyFilter(filter),
+                      onTap: () => _selectFilter(filter),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -234,9 +239,84 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
                     setState(() {
                       _autoEnhance = value;
                     });
+                    _refreshPreview();
                   },
                 ),
+                _buildSlider(
+                  label: 'Brightness',
+                  value: _brightness,
+                  min: -0.35,
+                  max: 0.35,
+                  divisions: 14,
+                  onChanged: (value) {
+                    setState(() {
+                      _brightness = value;
+                    });
+                  },
+                  onChangeEnd: (_) => _refreshPreview(),
+                ),
+                _buildSlider(
+                  label: 'Contrast',
+                  value: _contrast,
+                  min: 0.6,
+                  max: 1.6,
+                  divisions: 10,
+                  onChanged: (value) {
+                    setState(() {
+                      _contrast = value;
+                    });
+                  },
+                  onChangeEnd: (_) => _refreshPreview(),
+                ),
+                _buildSlider(
+                  label: 'Saturation',
+                  value: _saturation,
+                  min: 0.0,
+                  max: 1.8,
+                  divisions: 18,
+                  onChanged: (value) {
+                    setState(() {
+                      _saturation = value;
+                    });
+                  },
+                  onChangeEnd: (_) => _refreshPreview(),
+                ),
+                _buildSlider(
+                  label: 'Cleanup',
+                  value: _cleanup,
+                  min: 0.0,
+                  max: 1.0,
+                  divisions: 10,
+                  onChanged: (value) {
+                    setState(() {
+                      _cleanup = value;
+                    });
+                  },
+                  onChangeEnd: (_) => _refreshPreview(),
+                ),
+                _buildSlider(
+                  label: 'Sharpness',
+                  value: _sharpness,
+                  min: 0.0,
+                  max: 1.0,
+                  divisions: 10,
+                  onChanged: (value) {
+                    setState(() {
+                      _sharpness = value;
+                    });
+                  },
+                  onChangeEnd: (_) => _refreshPreview(),
+                ),
                 const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: _resetDocumentAdjustments,
+                    icon: const Icon(Icons.restart_alt),
+                    label: const Text('Reset Adjustments'),
+                  ),
+                ),
+                const SizedBox(height: 8),
                 Row(
                   children: [
                     Expanded(
@@ -289,147 +369,45 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
   }
 
   Future<void> _processAndContinue() async {
-    setState(() {
-      _isApplyingFilter = true;
-    });
-
-    try {
-      final pageId = ref.read(scanSessionProvider).session!.pages.last.id;
-
-      await _applySelectedFilterToPage(pageId);
-
-      final updatedPage = ref.read(scanSessionProvider).session!.pages
-          .firstWhere((page) => page.id == pageId);
-      if (!updatedPage.isProcessed || _autoEnhance) {
-        await ref.read(scanSessionProvider.notifier).processPage(
-              pageId,
-              autoEnhance: _autoEnhance,
-            );
-      }
-
-      if (mounted) {
-        context.pop();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save page: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isApplyingFilter = false;
-        });
-      }
-    }
+    await _savePage(
+      onSuccess: () => context.pop(),
+      errorPrefix: 'Failed to save page',
+    );
   }
 
   Future<void> _processAndFinish() async {
-    setState(() {
-      _isApplyingFilter = true;
-    });
-
-    try {
-      final pageId = ref.read(scanSessionProvider).session!.pages.last.id;
-
-      await _applySelectedFilterToPage(pageId);
-
-      final updatedPage = ref.read(scanSessionProvider).session!.pages
-          .firstWhere((page) => page.id == pageId);
-      if (!updatedPage.isProcessed || _autoEnhance) {
-        await ref.read(scanSessionProvider.notifier).processPage(
-              pageId,
-              autoEnhance: _autoEnhance,
-            );
-      }
-
-      if (mounted) {
-        context.go('/scanner/review');
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to finish page: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isApplyingFilter = false;
-        });
-      }
-    }
+    await _savePage(
+      onSuccess: () => context.go('/scanner/review'),
+      errorPrefix: 'Failed to finish page',
+    );
   }
 
   Future<void> _saveEditsAndReturn() async {
-    setState(() {
-      _isApplyingFilter = true;
-    });
-
-    try {
-      final pageId = widget.pageId!;
-      await _applySelectedFilterToPage(pageId);
-
-      final updatedPage = ref.read(scanSessionProvider).session!.pages
-          .firstWhere((page) => page.id == pageId);
-      if (!updatedPage.isProcessed || _autoEnhance) {
-        await ref.read(scanSessionProvider.notifier).processPage(
-              pageId,
-              autoEnhance: _autoEnhance,
-            );
-      }
-
-      if (mounted) {
-        context.pop();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save changes: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isApplyingFilter = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _applySelectedFilterToPage(String pageId) async {
-    if (_selectedFilter == ImageFilter.none) {
-      return;
-    }
-
-    final currentPage = ref.read(scanSessionProvider).session!.pages
-        .firstWhere((page) => page.id == pageId);
-    final filterService = ref.read(imageFiltersServiceProvider);
-    final finalFiltered = await filterService.applyFilter(
-      currentPage.imageData,
-      _selectedFilter,
+    await _savePage(
+      onSuccess: () => context.pop(),
+      errorPrefix: 'Failed to save changes',
     );
-
-    await ref.read(scanSessionProvider.notifier).updatePageImage(
-          pageId,
-          finalFiltered,
-        );
   }
 
-  Future<void> _applyFilter(ImageFilter filter) async {
+  Future<void> _selectFilter(ImageFilter filter) async {
+    setState(() {
+      _selectedFilter = filter;
+    });
+    await _refreshPreview();
+  }
+
+  Future<void> _refreshPreview() async {
     if (_isApplyingFilter) return;
 
-    if (_previewCache.containsKey(filter)) {
+    final signature = _settingsSignature(_currentSettings);
+    if (_previewCache.containsKey(signature)) {
       setState(() {
-        _selectedFilter = filter;
-        _filteredImageData = _previewCache[filter];
+        _filteredImageData = _previewCache[signature];
       });
       return;
     }
 
     setState(() {
-      _selectedFilter = filter;
       _isApplyingFilter = true;
     });
 
@@ -440,23 +418,14 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
         throw Exception('Page not found');
       }
 
-      if (filter == ImageFilter.none) {
-        setState(() {
-          _filteredImageData = null;
-          _isApplyingFilter = false;
-        });
-        return;
-      }
-
-      final filterService = ref.read(imageFiltersServiceProvider);
-      final filtered = await filterService.applyPreviewFilter(
-        page.imageData,
-        filter,
+      final filtered = await ref.read(imageProcessingServiceProvider).applyPreviewDocumentEdits(
+        page.originalImageData,
+        settings: _currentSettings,
       );
 
       if (mounted) {
         setState(() {
-          _previewCache[filter] = filtered;
+          _previewCache[signature] = filtered;
           _filteredImageData = filtered;
           _isApplyingFilter = false;
         });
@@ -471,6 +440,144 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
         );
       }
     }
+  }
+
+  Future<void> _savePage({
+    required VoidCallback onSuccess,
+    required String errorPrefix,
+  }) async {
+    setState(() {
+      _isApplyingFilter = true;
+    });
+
+    try {
+      final pageId = widget.pageId ?? ref.read(scanSessionProvider).session!.pages.last.id;
+
+      final currentPage = ref.read(scanSessionProvider).session!.pages
+          .firstWhere((page) => page.id == pageId);
+      if (!currentPage.isProcessed) {
+        await ref.read(scanSessionProvider.notifier).processPage(
+              pageId,
+              autoEnhance: false,
+            );
+      }
+
+      await ref.read(scanSessionProvider.notifier).applyPageEdits(
+            pageId,
+            _currentSettings,
+          );
+
+      if (!mounted) return;
+      onSuccess();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$errorPrefix: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isApplyingFilter = false;
+        });
+      }
+    }
+  }
+
+  void _loadPageState(ScannedPage page) {
+    if (_loadedPageId == page.id) {
+      return;
+    }
+
+    final savedSettings = page.editSettings;
+    _loadedPageId = page.id;
+    _autoEnhance = savedSettings.autoEnhance;
+    _brightness = savedSettings.brightness;
+    _contrast = savedSettings.contrast;
+    _saturation = savedSettings.saturation;
+    _cleanup = savedSettings.cleanup;
+    _sharpness = savedSettings.sharpness;
+    final filterIndex = savedSettings.filterIndex.clamp(
+      0,
+      ImageFilter.values.length - 1,
+    );
+    _selectedFilter = ImageFilter.values[filterIndex];
+    _filteredImageData = null;
+    _previewCache
+      ..clear()
+      ..[_settingsSignature(savedSettings)] = page.imageData;
+  }
+
+  void _resetDocumentAdjustments() {
+    setState(() {
+      _autoEnhance = true;
+      _brightness = 0.0;
+      _contrast = 1.0;
+      _saturation = 1.0;
+      _cleanup = 0.0;
+      _sharpness = 0.0;
+      _selectedFilter = ImageFilter.none;
+    });
+    _refreshPreview();
+  }
+
+  ScannedPageEditSettings get _currentSettings => ScannedPageEditSettings(
+        brightness: _brightness,
+        contrast: _contrast,
+        saturation: _saturation,
+        cleanup: _cleanup,
+        sharpness: _sharpness,
+        autoEnhance: _autoEnhance,
+        filterIndex: _selectedFilter.index,
+      );
+
+  String _settingsSignature(ScannedPageEditSettings settings) {
+    return [
+      settings.autoEnhance,
+      settings.filterIndex,
+      settings.brightness.toStringAsFixed(3),
+      settings.contrast.toStringAsFixed(3),
+      settings.saturation.toStringAsFixed(3),
+      settings.cleanup.toStringAsFixed(3),
+      settings.sharpness.toStringAsFixed(3),
+    ].join('|');
+  }
+
+  Widget _buildSlider({
+    required String label,
+    required double value,
+    required double min,
+    required double max,
+    required int divisions,
+    required ValueChanged<double> onChanged,
+    required ValueChanged<double> onChangeEnd,
+  }) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
+            Text(
+              value.toStringAsFixed(2),
+              style: const TextStyle(color: Colors.white70),
+            ),
+          ],
+        ),
+        Slider(
+          value: value,
+          min: min,
+          max: max,
+          divisions: divisions,
+          label: value.toStringAsFixed(2),
+          onChanged: onChanged,
+          onChangeEnd: onChangeEnd,
+        ),
+      ],
+    );
   }
 
   ScannedPage? _resolvePage(ScanSession session) {
